@@ -16,6 +16,7 @@ require_relative "herb/parser_options"
 require_relative "herb/parse_result"
 require_relative "herb/diff"
 require_relative "herb/backend"
+require_relative "herb/backend/pure_ruby"
 
 require_relative "herb/ast/node"
 require_relative "herb/ast/nodes"
@@ -32,38 +33,42 @@ require_relative "herb/version"
 require_relative "herb/ensure_installed"
 require_relative "herb/visitor"
 
-begin
-  major, minor, _patch = RUBY_VERSION.split(".") #: [String, String, String]
+if ENV["HERB_BACKEND"] == "pure_ruby" || RUBY_ENGINE == "jruby"
+  Herb::Backend::PureRuby.install!
+else
+  begin
+    major, minor, _patch = RUBY_VERSION.split(".") #: [String, String, String]
 
-  if RUBY_PATCHLEVEL == -1
-    require_relative "herb/herb"
-  else
-    begin
-      require_relative "herb/#{major}.#{minor}/herb"
-    rescue LoadError
+    if RUBY_PATCHLEVEL == -1
       require_relative "herb/herb"
+    else
+      begin
+        require_relative "herb/#{major}.#{minor}/herb"
+      rescue LoadError
+        require_relative "herb/herb"
+      end
     end
+  rescue LoadError => e
+    raise LoadError, <<~MESSAGE
+      Failed to load the Herb native extension.
+
+      Tried to load: #{e.message.split(" -- ").last}
+
+      This can happen when:
+        1. You're using a preview/development version of Ruby (RUBY_PATCHLEVEL=#{RUBY_PATCHLEVEL})
+        2. The native extension wasn't compiled during gem installation
+        3. Required build tools (C compiler) were missing during installation
+
+      To fix, try reinstalling with source compilation:
+        gem install herb --platform ruby
+
+      If compilation fails, install a C compiler first:
+        - macOS:          xcode-select --install
+        - Ubuntu/Debian:  apt-get install build-essential
+        - Fedora/RHEL:    dnf install make gcc
+        - Alpine:         apk add build-base
+    MESSAGE
   end
-rescue LoadError => e
-  raise LoadError, <<~MESSAGE
-    Failed to load the Herb native extension.
-
-    Tried to load: #{e.message.split(" -- ").last}
-
-    This can happen when:
-      1. You're using a preview/development version of Ruby (RUBY_PATCHLEVEL=#{RUBY_PATCHLEVEL})
-      2. The native extension wasn't compiled during gem installation
-      3. Required build tools (C compiler) were missing during installation
-
-    To fix, try reinstalling with source compilation:
-      gem install herb --platform ruby
-
-    If compilation fails, install a C compiler first:
-      - macOS:          xcode-select --install
-      - Ubuntu/Debian:  apt-get install build-essential
-      - Fedora/RHEL:    dnf install make gcc
-      - Alpine:         apk add build-base
-  MESSAGE
 end
 
 module Herb

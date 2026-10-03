@@ -2,9 +2,11 @@
 
 source "https://rubygems.org"
 
+require_relative "lib/herb/prism_version"
+
 gemspec
 
-gem "prism", github: "ruby/prism", tag: "v1.9.0"
+gem "prism", github: "ruby/prism", tag: "v#{Herb::PRISM_VERSION}"
 
 gem "actionview", "~> 8.1", require: "action_view"
 gem "benchmark"

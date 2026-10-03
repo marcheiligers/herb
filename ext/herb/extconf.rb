@@ -2,6 +2,7 @@
 
 require "mkmf"
 require_relative "../../lib/herb/bootstrap"
+require_relative "../../lib/herb/prism_version"
 
 extension_name = "herb"
 
@@ -19,7 +20,7 @@ if Herb::Bootstrap.git_source? && !Herb::Bootstrap.templates_generated?
 
       Add it to your Gemfile before the herb git reference:
 
-        gem "prism", github: "ruby/prism", tag: "v1.9.0"
+        gem "prism", github: "ruby/prism", tag: "v#{Herb::PRISM_VERSION}"
         gem "herb", github: "...", branch: "..."
 
       Then run `bundle install` again.

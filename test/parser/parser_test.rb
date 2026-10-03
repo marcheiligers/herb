@@ -14,7 +14,7 @@ module Parser
       assert_parsed_snapshot("")
     end
 
-    test "parse releases the GVL and leaves its input mutable" do
+    test "parse leaves its input mutable and the native backend releases the GVL" do
       source = "<div><%= value %></div>\n" * 10_000
       parser = Thread.new { Herb.parse(source, track_locations: false) }
       observed_without_gvl = false
@@ -25,7 +25,7 @@ module Parser
       end
 
       parser.value
-      assert observed_without_gvl
+      assert observed_without_gvl unless ENV["HERB_BACKEND"] == "pure_ruby" || RUBY_ENGINE == "jruby"
 
       source << "<p>still mutable</p>"
       assert_predicate source, :valid_encoding?
@@ -46,7 +46,7 @@ module Parser
       expected = Herb.parse(source, track_locations: false).value.children.size
 
       parser = Thread.new { Herb.parse(source, track_locations: false) }
-      Thread.pass while parser.status != "sleep"
+      Thread.pass while parser.alive? && parser.status != "sleep"
       source << "<p>appended mid-parse</p>"
 
       assert_equal expected, parser.value.value.children.size

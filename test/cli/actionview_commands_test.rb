@@ -56,6 +56,7 @@ module CLI
         .gsub(File.realpath(@project_path), "<project>")
         .gsub(@project_path, "<project>")
         .gsub(/v\d+\.\d+\.\d+/, "vVERSION")
+        .gsub("herb gem vVERSION (pure Ruby experiment)", "herb gem vVERSION, libprism vVERSION, libherb vVERSION (Ruby C native extension)")
         .gsub(/\d+(\.\d+)?\s*(ms|s)\b/, "<duration>")
     end
 

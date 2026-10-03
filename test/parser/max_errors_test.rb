@@ -42,5 +42,16 @@ module Parser
 
       assert result.errors.empty?
     end
+
+    test "Ruby diagnostics do not consume the parser error limit" do
+      source = "<%= ) %>"
+      source += "<div>" * 10
+      result = Herb.parse(source, max_errors: 3)
+      parser_error_count = result.errors.count { |error| error.is_a?(Herb::Errors::MissingClosingTagError) }
+      ruby_error_count = result.errors.count { |error| error.is_a?(Herb::Errors::RubyParseError) }
+
+      assert_equal 3, parser_error_count
+      assert_equal 1, ruby_error_count
+    end
   end
 end

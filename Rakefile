@@ -83,12 +83,25 @@ begin
       RakeCompilerDock.sh "bundle --local && rake native:#{platform} gem", platform: platform
     end
 
-    RakeCompilerDock.sh "bundle --local && rake java gem", rubyvm: :jruby
+    RakeCompilerDock.sh "bundle --local && rake gem:java", rubyvm: :jruby
   rescue LoadError
     abort "rake_compiler_dock is required to build native gems"
   end
 
   namespace "gem" do
+    desc "Build the pure-Ruby gem for JRuby"
+    task "java" do
+      require "rubygems/package"
+      require_relative "lib/herb/java_gem_specification"
+
+      base_specification = Gem::Specification.load("herb.gemspec")
+      abort "Could not load herb.gemspec" unless base_specification
+
+      specification = Herb::JavaGemSpecification.build(base_specification)
+      FileUtils.mkdir_p("pkg")
+      Gem::Package.build(specification, false, false, File.join("pkg", specification.file_name))
+    end
+
     task "prepare" do
       require "rake_compiler_dock"
       require "io/console"

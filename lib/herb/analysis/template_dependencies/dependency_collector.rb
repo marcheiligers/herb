@@ -89,20 +89,30 @@ module Herb
           if prism_node
             walk_prism_node(prism_node)
           else
-            analyze_ruby_expression(erb_node.content&.value&.strip)
+            analyze_ruby_expression(fallback_ruby_source(erb_node))
           end
         rescue StandardError
           nil
         end
 
+        def fallback_ruby_source(erb_node)
+          source = erb_node.content&.value&.strip
+
+          erb_node.respond_to?(:end_node) && erb_node.end_node ? "#{source}\nend" : source
+        end
+
         #: (untyped, iterating: bool) { () -> void } -> void
         def within_block(node, iterating:)
           expression = node.content&.value&.strip
+          parameters = block_parameters(expression)
+          known_locals = @known_locals.dup
 
-          @blocks.push({ expression: expression, parameters: block_parameters(expression), iterating: iterating })
+          @known_locals.merge(parameters)
+          @blocks.push({ expression: expression, parameters: parameters, iterating: iterating })
 
           yield
         ensure
+          @known_locals.replace(known_locals) if known_locals
           @blocks.pop
         end
 

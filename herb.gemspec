@@ -2,8 +2,9 @@
 
 begin
   require_relative "lib/herb/version"
+  require_relative "lib/herb/prism_version"
 rescue LoadError
-  puts "WARNING: Could not load Herb::VERSION"
+  puts "WARNING: Could not load Herb version constants"
 end
 
 Gem::Specification.new do |spec|

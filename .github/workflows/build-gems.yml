@@ -13,10 +13,13 @@ on:
       - "ext/**"
       - "Gemfile"
       - "Gemfile.lock"
+      - "herb.gemspec"
       - "Makefile"
       - "Rakefile"
       - ".ruby-version"
+      - ".github/workflows/build-gems.yml"
       - "config.yml"
+      - "test/jruby_package_smoke.rb"
 
   pull_request:
     paths:
@@ -25,10 +28,13 @@ on:
       - "ext/**"
       - "Gemfile"
       - "Gemfile.lock"
+      - "herb.gemspec"
       - "Makefile"
       - "Rakefile"
       - ".ruby-version"
+      - ".github/workflows/build-gems.yml"
       - "config.yml"
+      - "test/jruby_package_smoke.rb"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -38,6 +44,56 @@ permissions:
   contents: read
 
 jobs:
+  java-gem:
+    name: Build Java gem
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Build Java gem
+        run: bundle exec rake gem:java
+
+      - name: Upload Java gem
+        uses: actions/upload-artifact@v7
+        with:
+          name: gem-java
+          path: pkg/*-java.gem
+          if-no-files-found: error
+          retention-days: 7
+
+  jruby-smoke:
+    name: Test Java gem on JRuby
+    needs: java-gem
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup JRuby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: jruby-10.1.2.0
+
+      - name: Download Java gem
+        uses: actions/download-artifact@v8
+        with:
+          name: gem-java
+          path: pkg
+
+      - name: Install Java gem
+        run: gem install pkg/*-java.gem --no-document
+
+      - name: Run packaged-gem smoke test
+        run: ruby test/jruby_package_smoke.rb
+
   build:
     name: Build ${{ matrix.target }} gem
     strategy:
@@ -105,7 +161,7 @@ jobs:
   push:
     name: Push gems with trusted publishing
     if: github.event_name == 'release' && github.repository_owner == 'marcoroth'
-    needs: build
+    needs: [build, java-gem, jruby-smoke]
     timeout-minutes: 30
     runs-on: ubuntu-latest
     permissions:

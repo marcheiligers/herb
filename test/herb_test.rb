@@ -4,7 +4,13 @@ require_relative "test_helper"
 
 class HerbTest < Minitest::Spec
   test "version" do
-    assert_equal "herb gem v0.11.0, libprism v1.9.0, libherb v0.11.0 (Ruby C native extension)", Herb.version
+    expected = if ENV["HERB_BACKEND"] == "pure_ruby" || RUBY_ENGINE == "jruby"
+                 "herb gem v0.11.0 (pure Ruby experiment)"
+               else
+                 "herb gem v0.11.0, libprism v1.9.0, libherb v0.11.0 (Ruby C native extension)"
+               end
+
+    assert_equal expected, Herb.version
   end
 
   test "ensure_installed requires available gems without loading bundler/inline" do
