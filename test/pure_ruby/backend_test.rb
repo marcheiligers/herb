@@ -559,6 +559,14 @@ module PureRuby
       assert_equal "const value = 1", script.body.first.content
     end
 
+    test "flattens deeply nested unclosed elements without exhausting the Ruby stack" do
+      document = Herb::Backend::PureRuby.parse("<div>" * 3_000).value
+
+      assert_equal 3_000, document.children.length
+      assert document.children.all?(Herb::AST::HTMLOpenTagNode)
+      assert_instance_of Herb::Errors::MissingClosingTagError, document.children.first.errors.first
+    end
+
     test "parses enabled dot-notation tag names and validates their first segment" do
       element = Herb::Backend::PureRuby.parse(
         "<Dialog.Button></Dialog.Button>", dot_notation_tags: true

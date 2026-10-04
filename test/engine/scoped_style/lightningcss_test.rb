@@ -6,7 +6,11 @@ require_relative "../../../lib/herb/engine"
 require_relative "../../../lib/herb/engine/inline_render/visitor"
 require_relative "../../../lib/herb/engine/scoped_style/visitor"
 
-require "lightningcss"
+begin
+  require "lightningcss"
+rescue LoadError
+  nil
+end
 
 module Engine
   class ScopedStyleLightningCSSTest < Minitest::Spec
@@ -14,6 +18,10 @@ module Engine
 
     PROJECT_PATH = "test/fixtures/scoped_styles"
     TEMPLATE = "app/views/posts/index.html.erb"
+
+    before do
+      skip "lightningcss is unavailable on this Ruby platform" unless defined?(LightningCSS)
+    end
 
     def options(inline: false, **overrides)
       visitors = inline ? [Herb::Engine::InlineRender::Visitor.new] : []

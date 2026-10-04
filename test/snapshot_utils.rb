@@ -226,6 +226,8 @@ module SnapshotUtils
   rescue Minitest::Assertion => e
     save_failures_to_snapshot(actual, source, options) if ENV["UPDATE_SNAPSHOTS"] || ENV["FORCE_UPDATE_SNAPSHOTS"]
 
+    raise unless defined?(Difftastic::Differ)
+
     raise unless snapshot_file(source, options).exist?
 
     expected_full_snapshot = snapshot_file(source, options).read

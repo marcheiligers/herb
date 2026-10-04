@@ -88,14 +88,14 @@ module Herb
         }.freeze
 
         #: (String?, **untyped) -> void
-        def initialize(source, **) # rubocop:disable Metrics/AbcSize
+        def initialize(source, **options) # rubocop:disable Metrics/AbcSize
           unless source.nil? || source.is_a?(String)
             raise TypeError, "wrong argument type #{source.class} (expected String)"
           end
 
           @original_source = source
           @source = source.to_s.dup
-          @options = ParserOptions.new(timeout: 1.0, **)
+          @options = ParserOptions.new(timeout: 1.0, **options)
           @tokens = Lexer.new(@source, erb_openers: @options.erb_openers).tokens
           @case_condition_tags = {}
           prepare_multiple_control_tags
@@ -107,6 +107,7 @@ module Herb
           @document_errors = []
           @found_strict_locals = false
           prepare_ruby_document if @options.analyze || @options.action_view_helpers || prism_output_requested?
+          start_deadline(options)
         end
 
         #: () -> Herb::ParseResult
@@ -124,6 +125,7 @@ module Herb
           annotate_prism_nodes(document) if @options.prism_nodes
           apply_error_limit(document)
           add_ruby_parse_errors(document) if @options.analyze
+          add_timeout_error(document) if past_deadline?
           strip_node_positions(document) unless @options.track_locations
           ParseResult.new(document, @original_source, [], [], @options, document.recursive_errors.size)
         end
@@ -1653,10 +1655,10 @@ module Herb
           Location.new(position_at(start_offset), position_at(end_offset))
         end
 
-        def parse_children(closing_name = nil, boundaries: [])
+        def parse_children(closing_name = nil, boundaries: []) # rubocop:disable Metrics/AbcSize
           children = []
 
-          until eof? || boundaries.include?(erb_keyword)
+          until eof? || boundaries.include?(erb_keyword) || past_deadline?
             break if element_boundary?(closing_name, children)
 
             child = parse_child(boundaries)
@@ -2114,6 +2116,7 @@ module Herb
 
         def parse_element(boundaries: []) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
           @boolean_attribute_location_quirk = false
+          opening_index = @index
           opening_token = current
           name_token = @tokens[@index + 1]
           open_tag = parse_open_tag
@@ -2125,6 +2128,11 @@ module Herb
           void = open_tag.is_void || html_void_element?(name.value)
           raw_text = raw_text_element?(name.value)
           escapable_text = escapable_text_element?(name.value)
+          if open_tag.tag_closing && flatten_unclosed_element?(name, void, raw_text, escapable_text, opening_index)
+            open_tag.errors << missing_closing_tag_error(opening_location, name_token)
+            return open_tag
+          end
+
           @boolean_attribute_location_quirk = boolean_attribute_location_quirk?(open_tag)
 
           body = if void
@@ -2179,6 +2187,12 @@ module Herb
             element_source: "HTML",
             location: location_from(open_tag, finish)
           )
+        end
+
+        def flatten_unclosed_element?(name, void, raw_text, escapable_text, opening_index)
+          !void && !raw_text && !escapable_text &&
+            !OPTIONAL_END_ELEMENTS.include?(name.value.downcase) &&
+            !matched_opening_tag_indices.include?(opening_index)
         end
 
         def build_element_with_omitted_close_tag(open_tag, name, body)
@@ -4374,8 +4388,42 @@ module Herb
         end
 
         def matching_element_close_tag_ahead?(name)
-          balances, suffix_minimums = element_tag_balance_data(name.downcase)
+          name = name.downcase
+          return false unless element_close_tag_names.include?(name)
+
+          balances, suffix_minimums = element_tag_balance_data(name)
           suffix_minimums[@index + 1] < balances[@index]
+        end
+
+        def matched_opening_tag_indices # rubocop:disable Metrics/AbcSize, Metrics/PerceivedComplexity
+          @matched_opening_tag_indices ||= begin
+            openings = Hash.new { |hash, name| hash[name] = [] }
+            matched = {}
+
+            @tokens.each_with_index do |token, index|
+              next unless HTML_TAG_START_TYPES.include?(token.type)
+
+              name = tag_name_at(index + 1)&.downcase
+              next unless name
+
+              if token.type == "TOKEN_HTML_TAG_START"
+                openings[name] << index
+              elsif (opening_index = openings[name].pop)
+                matched[opening_index] = true
+              end
+            end
+
+            matched
+          end
+        end
+
+        def element_close_tag_names
+          @element_close_tag_names ||= @tokens.each_with_index.with_object({}) do |(token, index), names|
+            next unless token.type == "TOKEN_HTML_TAG_START_CLOSE"
+
+            name = tag_name_at(index + 1)
+            names[name.downcase] = true if name
+          end
         end
 
         def element_tag_balance_data(name) # rubocop:disable Metrics/AbcSize, Metrics/PerceivedComplexity
@@ -4611,6 +4659,27 @@ module Herb
 
         def document_location
           Location.new(Position.new(1, 0), current.location.end)
+        end
+
+        def start_deadline(options)
+          timeout_ms = (@options.timeout * 1_000).to_i
+          return unless options.key?(:timeout) && timeout_ms.positive?
+
+          @deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + @options.timeout
+        end
+
+        def past_deadline?
+          @deadline && Process.clock_gettime(Process::CLOCK_MONOTONIC) >= @deadline
+        end
+
+        def add_timeout_error(document)
+          timeout_ms = (@options.timeout * 1_000).to_i
+          document.errors << Errors::TimeoutError.new(
+            "TIMEOUT_ERROR",
+            document.location,
+            "Parsing timed out after #{timeout_ms} ms.",
+            timeout_ms
+          )
         end
 
         def apply_error_limit(document)

@@ -7,7 +7,17 @@ require_relative "../../../lib/herb/engine/inline_render/visitor"
 require_relative "../../../lib/herb/engine/scoped_style/visitor"
 require_relative "../../../lib/herb/engine/css_inliner/visitor"
 
-require "lightningcss"
+begin
+  require "lightningcss"
+rescue LoadError
+  nil
+end
+
+begin
+  require "css_inline"
+rescue LoadError
+  nil
+end
 
 module Engine
   class CSSInlinerVisitorTest < Minitest::Spec
@@ -16,6 +26,10 @@ module Engine
     PROJECT_PATH = "test/fixtures/css_inliner"
     TEMPLATE = "app/views/posts/index.html.erb"
     ROW = "app/views/posts/_row.html.erb"
+
+    before do
+      skip "css_inline is unavailable on this Ruby platform" unless defined?(CSSInline)
+    end
 
     class Raising
       def inline_fragment(*)

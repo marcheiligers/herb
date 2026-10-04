@@ -169,6 +169,8 @@ module Engine
     end
 
     test "narrows with Lightning CSS when it was given no transform of its own" do
+      skip "lightningcss is unavailable on this Ruby platform" unless Gem.loaded_specs.key?("lightningcss")
+
       _, visitor = compile(%(<style scoped>.title { color: red; }</style><h1 class="title">Hi</h1>), transform: nil)
 
       assert_empty visitor.diagnostics

@@ -1,7 +1,11 @@
 # frozen_string_literal: true
 
 require "action_view"
-require "reactionview/template/handlers/herb/herb"
+begin
+  require "reactionview/template/handlers/herb/herb"
+rescue LoadError
+  nil
+end
 
 require_relative "../test_helper"
 require_relative "../snapshot_utils"
@@ -12,7 +16,11 @@ module Engine
   class RailsCompatibilityTest < Minitest::Spec
     include SnapshotUtils
 
-    ReActionViewHerb = ReActionView::Template::Handlers::Herb::Herb
+    ReActionViewHerb = ReActionView::Template::Handlers::Herb::Herb if defined?(ReActionView)
+
+    before do
+      skip "reactionview is unavailable on this Ruby platform" unless defined?(ReActionViewHerb)
+    end
 
     private
 

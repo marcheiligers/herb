@@ -344,6 +344,12 @@ module Herb
         end
 
         def advance(value)
+          unless value.include?("\r") || value.include?("\n")
+            @column += value.length
+            @offset += value.bytesize
+            return
+          end
+
           value.scan(/\r\n|\r|\n|[^\r\n]/).each do |character|
             if NEWLINES.include?(character)
               @line += 1
@@ -400,7 +406,12 @@ module Herb
         end
 
         def current_char_at(relative_offset)
-          @source.byteslice((@offset + relative_offset)..)&.slice(/\A./m)
+          offset = @offset + relative_offset
+          byte = @source.getbyte(offset)
+          return unless byte
+          return @source.byteslice(offset, 1) if byte < 128
+
+          @source.byteslice(offset..)&.slice(/\A./m)
         end
 
         def byte_at(relative_offset)
