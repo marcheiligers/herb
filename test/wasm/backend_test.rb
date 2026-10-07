@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require_relative "../test_helper"
+require "digest"
+require "json"
 
 class WasmBackendTest < Minitest::Spec
   WASM_PATH = File.expand_path("../../wasm/portable/build/herb.wasm", __dir__)
@@ -85,6 +87,37 @@ class WasmBackendTest < Minitest::Spec
     assert_empty empty.value.children
     assert_equal({ line: 1, column: 0 }, empty.value.location.start.to_hash)
     assert_equal empty.value.location.start.to_hash, empty.value.location.end.to_hash
+  end
+
+  test "matches native AST results for generated field shapes" do
+    native_contracts = {
+      "hello <%= user.name %>" => "889737a7c7c621f6ecc59bc16a4c76e992da062bda5476d3b69732e11dcc9c88",
+      "<% if admin? %>yes<% else %>no<% end %>" => "1a2a845c71aafee1c9bd47ef7775cfe0be6ca234af3b4f2ff427f7c3b8de0657",
+      "<% if admin? then %>yes<% end %>" => "93558c67ef95c161321da5ea384c83e5ff0b0c4f0d170e91c85324f412f1e9c0",
+      "<% users.each do |user| %><%= user.name %><% end %>" => "1146a2faba422f87eb68dd7b4c3317388940e9b66e35bd017bc1c27d1379926d",
+    }
+
+    native_contracts.each do |source, expected_digest|
+      result = Herb::Backend::Wasm.parse(source, html: false)
+      actual_digest = Digest::SHA256.hexdigest(JSON.generate(result.value.to_hash))
+
+      assert_equal expected_digest, actual_digest, source
+    end
+  end
+
+  test "rejects malformed generated AST data" do
+    unknown_node = [999, 1, 0, 1, 0, 0].pack("L<*")
+    node_error = assert_raises(RuntimeError) do
+      Herb::Backend::Wasm::ASTCodec.decode_node(Herb::Backend::Wasm::PayloadReader.new(unknown_node))
+    end
+
+    assert_match(/unsupported Herb WebAssembly node type 999/, node_error.message)
+
+    string_error = assert_raises(RuntimeError) do
+      Herb::Backend::Wasm::ASTCodec.decode_string(Herb::Backend::Wasm::PayloadReader.new([2].pack("L<")))
+    end
+
+    assert_match(/invalid Herb WebAssembly string marker 2/, string_error.message)
   end
 
   test "keeps the incomplete parsing surface explicit" do

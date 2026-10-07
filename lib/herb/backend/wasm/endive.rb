@@ -44,8 +44,8 @@ module Herb
             call("herb_wasm_extract_html", source)
           end
 
-          def parse_literal(source)
-            call("herb_wasm_parse_literal", source, encoding: Encoding::BINARY)
+          def parse(source)
+            call("herb_wasm_parse", source, encoding: Encoding::BINARY)
           end
 
           private
@@ -117,8 +117,8 @@ module Herb
           runtime.extract_html(source)
         end
 
-        def parse_literal(source)
-          runtime.parse_literal(source)
+        def parse(source)
+          runtime.parse(source)
         end
 
         def runtime

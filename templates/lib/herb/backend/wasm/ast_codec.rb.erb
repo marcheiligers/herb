@@ -1,0 +1,111 @@
+module Herb
+  module Backend
+    module Wasm
+      module ASTCodec
+        module_function
+
+        def decode_node(reader)
+          node_id = reader.uint32
+          return nil if node_id.zero?
+
+          location = decode_location(reader)
+          error_count = reader.uint32
+          raise "the Herb WebAssembly AST codec does not support node errors yet" unless error_count.zero?
+
+          case node_id
+          <%- nodes.each_with_index do |node, index| -%>
+          when <%= index + 1 %>
+            <%- node.fields.each do |field| -%>
+            <%- case field -%>
+            <%- when Herb::Template::ArrayField -%>
+            <%= field.name %> = decode_nodes(reader)
+            <%- when Herb::Template::NodeField, Herb::Template::BorrowedNodeField -%>
+            <%= field.name %> = decode_node(reader)
+            <%- when Herb::Template::TokenField -%>
+            <%= field.name %> = decode_token(reader)
+            <%- when Herb::Template::StringField, Herb::Template::ElementSourceField -%>
+            <%= field.name %> = decode_string(reader)
+            <%- when Herb::Template::BooleanField -%>
+            <%= field.name %> = decode_boolean(reader)
+            <%- when Herb::Template::LocationField -%>
+            <%= field.name %> = decode_optional_location(reader)
+            <%- when Herb::Template::PrismNodeField, Herb::Template::PrismSerializedField -%>
+            <%= field.name %> = decode_prism_placeholder(reader)
+            <%- when Herb::Template::PrismContextField, Herb::Template::AnalyzedRubyField, Herb::Template::VoidPointerField -%>
+            <%= field.name %> = nil
+            <%- else -%>
+            <%- raise "Unsupported portable Wasm field type: #{field.class}" -%>
+            <%- end -%>
+            <%- end -%>
+            AST::<%= node.name %>.build(
+              <%- node.fields.each do |field| -%>
+              <%= field.name %>: <%= field.name %>,
+              <%- end -%>
+              location: location,
+              errors: []
+            )
+          <%- end -%>
+          else
+            raise "unsupported Herb WebAssembly node type #{node_id}"
+          end
+        end
+
+        def decode_nodes(reader)
+          Array.new(reader.uint32) { decode_node(reader) }
+        end
+
+        def decode_token(reader)
+          presence = reader.uint32
+          return nil if presence.zero?
+          raise "invalid Herb WebAssembly token marker #{presence}" unless presence == 1
+
+          value = decode_string(reader)
+          raise "Herb WebAssembly returned a token without a value" unless value
+
+          from = reader.uint32
+          to = reader.uint32
+          location = decode_location(reader)
+          type = decode_string(reader)
+          raise "Herb WebAssembly returned a token without a type" unless type
+
+          Token.new(value, Range.from(from, to), location, type)
+        end
+
+        def decode_string(reader)
+          presence = reader.uint32
+          return nil if presence.zero?
+          raise "invalid Herb WebAssembly string marker #{presence}" unless presence == 1
+
+          reader.string(reader.uint32)
+        end
+
+        def decode_boolean(reader)
+          value = reader.uint32
+          return false if value.zero?
+          return true if value == 1
+
+          raise "invalid Herb WebAssembly boolean #{value}"
+        end
+
+        def decode_optional_location(reader)
+          presence = reader.uint32
+          return nil if presence.zero?
+          raise "invalid Herb WebAssembly location marker #{presence}" unless presence == 1
+
+          decode_location(reader)
+        end
+
+        def decode_location(reader)
+          Location.from(reader.uint32, reader.uint32, reader.uint32, reader.uint32)
+        end
+
+        def decode_prism_placeholder(reader)
+          presence = reader.uint32
+          return nil if presence.zero?
+
+          raise "the Herb WebAssembly AST codec does not support Prism payloads yet"
+        end
+      end
+    end
+  end
+end

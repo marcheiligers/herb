@@ -6,6 +6,7 @@
 #include "ast/ast_nodes.h"
 #include "extract.h"
 #include "herb.h"
+#include "lexer/token.h"
 #include "lib/hb_allocator.h"
 #include "lib/hb_array.h"
 #include "lib/hb_buffer.h"
@@ -14,8 +15,7 @@ enum {
   HERB_WASM_RESULT_OK = 0,
   HERB_WASM_RESULT_ERROR = 1,
   HERB_WASM_RESULT_HEADER_SIZE = 8,
-  HERB_WASM_LITERAL_SCHEMA_VERSION = 1,
-  HERB_WASM_LITERAL_NODE = 1,
+  HERB_WASM_AST_SCHEMA_VERSION = 2,
 };
 
 static void herb_wasm_write_uint32(uint8_t* target, uint32_t value) {
@@ -63,6 +63,8 @@ static bool herb_wasm_buffer_append_location(hb_buffer_T* buffer, location_T loc
       && herb_wasm_buffer_append_uint32(buffer, location.end.line)
       && herb_wasm_buffer_append_uint32(buffer, location.end.column);
 }
+
+#include "ast_codec.inc"
 
 __attribute__((visibility("default"))) uint32_t herb_wasm_allocate(uint32_t size) {
   size_t allocation_size = size == 0 ? 1 : size;
@@ -121,12 +123,7 @@ herb_wasm_extract_html(uint32_t source_pointer, uint32_t source_length) {
   return (uint32_t) (uintptr_t) result;
 }
 
-/*
- * Temporary first-milestone codec for a document containing only literal nodes.
- * The complete AST codec will replace this after its format is selected and generated.
- */
-__attribute__((visibility("default"))) uint32_t
-herb_wasm_parse_literal(uint32_t source_pointer, uint32_t source_length) {
+__attribute__((visibility("default"))) uint32_t herb_wasm_parse(uint32_t source_pointer, uint32_t source_length) {
   if (source_length == UINT32_MAX) { return herb_wasm_error("source is too large"); }
 
   const char* source_bytes = (const char*) (uintptr_t) source_pointer;
@@ -160,7 +157,7 @@ herb_wasm_parse_literal(uint32_t source_pointer, uint32_t source_length) {
     ast_node_free((AST_NODE_T*) document, &allocator);
     hb_allocator_destroy(&allocator);
     free(source);
-    return herb_wasm_error("the literal parser experiment does not encode diagnostics yet");
+    return herb_wasm_error("the Herb WebAssembly AST codec does not encode diagnostics yet");
   }
 
   hb_buffer_T output;
@@ -171,42 +168,14 @@ herb_wasm_parse_literal(uint32_t source_pointer, uint32_t source_length) {
     return herb_wasm_error("failed to initialize the result buffer");
   }
 
-  herb_wasm_buffer_append_uint32(&output, HERB_WASM_LITERAL_SCHEMA_VERSION);
-  herb_wasm_buffer_append_location(&output, document->base.location);
+  herb_wasm_buffer_append_uint32(&output, HERB_WASM_AST_SCHEMA_VERSION);
   herb_wasm_buffer_append_uint32(&output, error_count);
 
-  size_t child_count = hb_array_size(document->children);
-  if (child_count > UINT32_MAX) {
+  if (!herb_wasm_encode_node(&output, (AST_NODE_T*) document)) {
     ast_node_free((AST_NODE_T*) document, &allocator);
     hb_allocator_destroy(&allocator);
     free(source);
-    return herb_wasm_error("the document has too many children");
-  }
-
-  herb_wasm_buffer_append_uint32(&output, (uint32_t) child_count);
-
-  for (size_t index = 0; index < child_count; index++) {
-    AST_NODE_T* child = hb_array_get(document->children, index);
-
-    if (child == NULL || child->type != AST_LITERAL_NODE || hb_array_size(child->errors) != 0) {
-      ast_node_free((AST_NODE_T*) document, &allocator);
-      hb_allocator_destroy(&allocator);
-      free(source);
-      return herb_wasm_error("the literal parser experiment received an unsupported node");
-    }
-
-    AST_LITERAL_NODE_T* literal = (AST_LITERAL_NODE_T*) child;
-    if (literal->content.length > UINT32_MAX) {
-      ast_node_free((AST_NODE_T*) document, &allocator);
-      hb_allocator_destroy(&allocator);
-      free(source);
-      return herb_wasm_error("literal content is too large");
-    }
-
-    herb_wasm_buffer_append_uint32(&output, HERB_WASM_LITERAL_NODE);
-    herb_wasm_buffer_append_location(&output, child->location);
-    herb_wasm_buffer_append_uint32(&output, (uint32_t) literal->content.length);
-    hb_buffer_append_with_length(&output, literal->content.data, literal->content.length);
+    return herb_wasm_error("the Herb WebAssembly AST codec received unsupported parser data");
   }
 
   uint8_t* result = herb_wasm_result_new(HERB_WASM_RESULT_OK, hb_buffer_value(&output), hb_buffer_length(&output));

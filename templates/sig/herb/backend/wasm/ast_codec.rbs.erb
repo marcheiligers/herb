@@ -1,0 +1,16 @@
+module Herb
+  module Backend
+    module Wasm
+      module ASTCodec
+        def self?.decode_node: (PayloadReader reader) -> untyped
+        def self?.decode_nodes: (PayloadReader reader) -> Array[untyped]
+        def self?.decode_token: (PayloadReader reader) -> Herb::Token?
+        def self?.decode_string: (PayloadReader reader) -> String?
+        def self?.decode_boolean: (PayloadReader reader) -> bool
+        def self?.decode_optional_location: (PayloadReader reader) -> Herb::Location?
+        def self?.decode_location: (PayloadReader reader) -> Herb::Location
+        def self?.decode_prism_placeholder: (PayloadReader reader) -> nil
+      end
+    end
+  end
+end

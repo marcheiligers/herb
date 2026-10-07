@@ -4,6 +4,7 @@
 raise LoadError, "Herb's WebAssembly backend requires JRuby" unless RUBY_ENGINE == "jruby"
 
 require_relative "wasm/endive"
+require_relative "wasm/ast_codec"
 
 module Herb
   module Backend
@@ -59,7 +60,7 @@ module Herb
           raise NotImplementedError, "the Herb WebAssembly experiment currently parses only with html: false"
         end
 
-        decode_literal_parse(Endive.parse_literal(source), source, parser_options)
+        decode_parse(Endive.parse(source), source, parser_options)
       end
 
       #: (String) -> String
@@ -82,35 +83,20 @@ module Herb
       end
       private_class_method :validate_source!
 
-      def decode_literal_parse(payload, source, parser_options)
+      def decode_parse(payload, source, parser_options)
         reader = PayloadReader.new(payload)
         schema_version = reader.uint32
-        raise "unsupported Herb WebAssembly result version #{schema_version}" unless schema_version == 1
+        raise "unsupported Herb WebAssembly result version #{schema_version}" unless schema_version == 2
 
-        document_location = decode_location(reader)
         error_count = reader.uint32
-        children = Array.new(reader.uint32) { decode_literal_node(reader) }
+        document = ASTCodec.decode_node(reader)
+        raise "Herb WebAssembly returned no document" unless document.is_a?(AST::DocumentNode)
 
         reader.finish!
 
-        document = AST::DocumentNode.build(children: children, location: document_location)
         ParseResult.new(document, source, [], [], parser_options, error_count)
       end
-      private_class_method :decode_literal_parse
-
-      def decode_literal_node(reader)
-        node_type = reader.uint32
-        raise "unsupported Herb WebAssembly node type #{node_type}" unless node_type == 1
-
-        location = decode_location(reader)
-        AST::LiteralNode.build(content: reader.string(reader.uint32), location: location)
-      end
-      private_class_method :decode_literal_node
-
-      def decode_location(reader)
-        Location.from(reader.uint32, reader.uint32, reader.uint32, reader.uint32)
-      end
-      private_class_method :decode_location
+      private_class_method :decode_parse
     end
   end
 end

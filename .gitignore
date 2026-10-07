@@ -188,6 +188,9 @@ wasm/error_helpers.h
 wasm/nodes.cpp
 wasm/nodes.h
 /wasm/portable/build/
+wasm/portable/ast_codec.inc
+lib/herb/backend/wasm/ast_codec.rb
+sig/herb/backend/wasm/ast_codec.rbs
 
 # Java Build Artifacts
 java/target/

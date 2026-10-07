@@ -8,9 +8,9 @@ The experiment currently exports:
 - owned result-buffer release;
 - libherb and Prism versions;
 - HTML extraction;
-- a temporary codec that parses `html: false` documents containing literal nodes.
+- a generated AST codec for valid `html: false` documents.
 
-The temporary literal codec proves that Endive can return real Herb Ruby AST objects. It is not the complete AST wire format.
+The generated codec covers Herb's node, token, location, string, boolean, and array field shapes. Diagnostics and Prism payloads are not encoded yet.
 
 ## Build
 
