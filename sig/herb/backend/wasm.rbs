@@ -1,0 +1,29 @@
+# Generated from lib/herb/backend/wasm.rb with RBS::Inline
+
+module Herb
+  module Backend
+    module Wasm
+      def self?.install!: () -> nil
+
+      class PayloadReader
+        def initialize: (String payload) -> void
+        def uint32: () -> Integer
+        def string: (Integer length) -> String
+        def finish!: () -> nil
+
+        private
+
+        def read: (Integer length) -> String
+      end
+
+      def self?.parse: (untyped source, **untyped) -> Herb::ParseResult
+      def self?.extract_html: (String source) -> String
+      def self?.version: () -> String
+
+      def self?.validate_source!: (untyped source) -> nil
+      def self?.decode_literal_parse: (String payload, String source, Herb::ParserOptions parser_options) -> Herb::ParseResult
+      def self?.decode_literal_node: (PayloadReader reader) -> Herb::AST::LiteralNode
+      def self?.decode_location: (PayloadReader reader) -> Herb::Location
+    end
+  end
+end

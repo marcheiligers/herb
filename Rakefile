@@ -191,6 +191,17 @@ namespace :prism do
   end
 end
 
+namespace :wasm do
+  desc "Build the host-neutral libherb WebAssembly experiment"
+  task portable: [:templates, "prism:vendor"] do
+    wasi_sdk_path = ENV.fetch("WASI_SDK_PATH") do
+      abort "Set WASI_SDK_PATH to a complete WASI SDK installation"
+    end
+
+    sh "make", "-C", "wasm/portable", "WASI_SDK_PATH=#{wasi_sdk_path}"
+  end
+end
+
 namespace :templates do
   desc "Watch template files and regenerate on changes"
   task :watch do

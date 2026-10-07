@@ -4,7 +4,9 @@ require_relative "test_helper"
 
 class HerbTest < Minitest::Spec
   test "version" do
-    expected = if ENV["HERB_BACKEND"] == "pure_ruby" || RUBY_ENGINE == "jruby"
+    expected = if ENV["HERB_BACKEND"] == "wasm"
+                 "herb gem v0.11.0, libprism v1.9.0, libherb v0.11.0 (WebAssembly through Endive)"
+               elsif ENV["HERB_BACKEND"] == "pure_ruby" || RUBY_ENGINE == "jruby"
                  "herb gem v0.11.0 (pure Ruby experiment)"
                else
                  "herb gem v0.11.0, libprism v1.9.0, libherb v0.11.0 (Ruby C native extension)"

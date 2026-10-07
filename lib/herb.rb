@@ -33,7 +33,10 @@ require_relative "herb/version"
 require_relative "herb/ensure_installed"
 require_relative "herb/visitor"
 
-if ENV["HERB_BACKEND"] == "pure_ruby" || RUBY_ENGINE == "jruby"
+if ENV["HERB_BACKEND"] == "wasm"
+  require_relative "herb/backend/wasm"
+  Herb::Backend::Wasm.install!
+elsif ENV["HERB_BACKEND"] == "pure_ruby" || RUBY_ENGINE == "jruby"
   Herb::Backend::PureRuby.install!
 else
   begin

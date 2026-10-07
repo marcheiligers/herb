@@ -1,0 +1,43 @@
+# Generated from lib/herb/backend/wasm/endive.rb with RBS::Inline
+
+module Herb
+  module Backend
+    module Wasm
+      module Endive
+        RESULT_HEADER_SIZE: Integer
+        WASM_PATH: String
+
+        ImportValues: untyped
+        Instance: untyped
+        WasiOptions: untyped
+        WasiPreview1: untyped
+        Parser: untyped
+
+        class Runtime
+          def initialize: () -> void
+          def close: () -> untyped
+          def string: (String name) -> String
+          def extract_html: (String source) -> String
+          def parse_literal: (String source) -> String
+
+          private
+
+          def function: (String name) -> untyped
+          def call: (String name, String source, ?encoding: Encoding) -> String
+          def allocate: (Integer size) -> Integer
+          def deallocate: (Integer? pointer) -> untyped
+          def result_free: (Integer? pointer) -> untyped
+          def write: (String value) -> Integer
+          def unwrap: (Integer pointer, ?encoding: Encoding) -> String
+        end
+
+        def self?.libherb_version: () -> String
+        def self?.prism_version: () -> String
+        def self?.extract_html: (String source) -> String
+        def self?.parse_literal: (String source) -> String
+        def self?.runtime: () -> Runtime
+        def self?.wasm_module: () -> untyped
+      end
+    end
+  end
+end

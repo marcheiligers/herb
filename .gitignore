@@ -187,6 +187,7 @@ wasm/parser_options_helpers.h
 wasm/error_helpers.h
 wasm/nodes.cpp
 wasm/nodes.h
+/wasm/portable/build/
 
 # Java Build Artifacts
 java/target/
