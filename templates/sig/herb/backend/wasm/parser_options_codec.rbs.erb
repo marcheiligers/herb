@@ -1,0 +1,13 @@
+module Herb
+  module Backend
+    module Wasm
+      module ParserOptionsCodec
+        SCHEMA_VERSION: Integer
+        MAX_ERB_OPENERS: Integer
+
+        def self?.encode: (Herb::ParserOptions options) -> String
+        def self?.encode_erb_openers: (String payload, untyped openers) -> void
+      end
+    end
+  end
+end

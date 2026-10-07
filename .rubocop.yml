@@ -75,6 +75,7 @@ Metrics/CyclomaticComplexity:
     - bench/**/*
     - lib/herb/ast/nodes.rb
     - lib/herb/backend/wasm/ast_codec.rb
+    - lib/herb/backend/wasm/parser_options_codec.rb
     - lib/herb/cli.rb
     - lib/herb/dev/protocol.rb
     - lib/herb/dev/runner.rb
@@ -93,6 +94,7 @@ Metrics/MethodLength:
     - lib/herb/ast/erb_render_node.rb
     - lib/herb/ast/nodes.rb
     - lib/herb/backend/wasm/ast_codec.rb
+    - lib/herb/backend/wasm/parser_options_codec.rb
     - lib/herb/cli.rb
     - lib/herb/dev.rb
     - lib/herb/dev/runner.rb
@@ -118,6 +120,7 @@ Metrics/AbcSize:
     - lib/herb/dev/watcher.rb
     - lib/herb/ast/nodes.rb
     - lib/herb/backend/wasm/ast_codec.rb
+    - lib/herb/backend/wasm/parser_options_codec.rb
     - lib/herb/cli.rb
     - lib/herb/dev.rb
     - lib/herb/dev/classifier.rb
@@ -170,6 +173,7 @@ Metrics/ModuleLength:
     - bench/**/*
     - lib/herb/dev/protocol.rb
     - lib/herb/backend/wasm/ast_codec.rb
+    - lib/herb/backend/wasm/parser_options_codec.rb
 
 Metrics/BlockLength:
   Max: 30
@@ -212,6 +216,7 @@ Metrics/PerceivedComplexity:
     - lib/herb/ast/erb_render_node.rb
     - lib/herb/ast/nodes.rb
     - lib/herb/backend/wasm/ast_codec.rb
+    - lib/herb/backend/wasm/parser_options_codec.rb
     - lib/herb/cli.rb
     - lib/herb/dev/watcher.rb
     - lib/herb/dev.rb

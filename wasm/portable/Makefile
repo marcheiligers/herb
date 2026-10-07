@@ -2,6 +2,7 @@ ROOT := ../..
 BUILD_DIR := build
 OUTPUT := $(BUILD_DIR)/herb.wasm
 AST_CODEC := ast_codec.inc
+PARSER_OPTIONS_CODEC := parser_options_codec.inc
 
 WASI_SDK_PATH ?= /opt/wasi-sdk
 CC := $(WASI_SDK_PATH)/bin/clang
@@ -56,7 +57,7 @@ check:
 	@test -x "$(CC)" || { echo "WASI SDK clang not found at $(CC)" >&2; exit 1; }
 	@test -f "$(ROOT)/vendor/prism/include/prism.h" || { echo "Vendored Prism is missing; run the Herb bootstrap first" >&2; exit 1; }
 
-$(OUTPUT): herb_wasm.c $(AST_CODEC) $(HERB_SOURCES) $(PRISM_SOURCES) | $(BUILD_DIR)
+$(OUTPUT): herb_wasm.c $(AST_CODEC) $(PARSER_OPTIONS_CODEC) $(HERB_SOURCES) $(PRISM_SOURCES) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $(SOURCES) $(LDFLAGS) -o $@
 
 $(BUILD_DIR):

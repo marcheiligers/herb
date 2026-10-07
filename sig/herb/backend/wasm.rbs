@@ -9,6 +9,7 @@ module Herb
         def initialize: (String payload) -> void
         def uint32: () -> Integer
         def string: (Integer length) -> String
+        def bytes: (Integer length) -> String
         def finish!: () -> nil
 
         private
@@ -21,6 +22,7 @@ module Herb
       def self?.version: () -> String
 
       def self?.validate_source!: (untyped source) -> nil
+      def self?.validate_parser_options!: (Herb::ParserOptions options) -> nil
       def self?.decode_parse: (String payload, String source, Herb::ParserOptions parser_options) -> Herb::ParseResult
     end
   end

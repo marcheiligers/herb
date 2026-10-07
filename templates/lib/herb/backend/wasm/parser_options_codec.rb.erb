@@ -1,0 +1,48 @@
+module Herb
+  module Backend
+    module Wasm
+      module ParserOptionsCodec
+        SCHEMA_VERSION = 1
+        MAX_ERB_OPENERS = 64
+
+        module_function
+
+        def encode(options)
+          payload = [SCHEMA_VERSION].pack("L<")
+          <%- parser_options.fields_for(:c).each do |field| -%>
+          <%- if field.boolean? -%>
+          payload << [options.<%= field.snake_case %> ? 1 : 0].pack("L<")
+          <%- elsif field.string_array? -%>
+          encode_erb_openers(payload, options.<%= field.snake_case %>)
+          <%- elsif field.ruby_unit == "seconds" -%>
+          <%= field.c_name %> = Float(options.<%= field.snake_case %>)
+          raise TypeError, "<%= field.snake_case %> must be numeric" unless <%= field.c_name %>
+
+          payload << [(<%= field.c_name %> * 1000).to_i].pack("L<")
+          <%- elsif field.nullable? -%>
+          payload << [options.<%= field.snake_case %> || <%= field.null_sentinel %>].pack("L<")
+          <%- else -%>
+          payload << [options.<%= field.snake_case %>].pack("L<")
+          <%- end -%>
+          <%- end -%>
+
+          payload
+        end
+
+        def encode_erb_openers(payload, openers)
+          raise TypeError, "wrong argument type #{openers.class} (expected Array)" unless openers.is_a?(Array)
+          raise ArgumentError, "erb_openers accepts at most #{MAX_ERB_OPENERS} entries" if openers.length > MAX_ERB_OPENERS
+
+          payload << [openers.length].pack("L<")
+
+          openers.each do |opener|
+            raise TypeError, "wrong argument type #{opener.class} (expected String)" unless opener.is_a?(String)
+            raise ArgumentError, "erb_openers entries must not be empty" if opener.empty?
+
+            payload << [opener.bytesize].pack("L<") << opener.b
+          end
+        end
+      end
+    end
+  end
+end

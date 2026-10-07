@@ -8,9 +8,12 @@ The experiment currently exports:
 - owned result-buffer release;
 - libherb and Prism versions;
 - HTML extraction;
-- a generated AST codec for valid `html: false` documents.
+- a generated AST codec for HTML and ERB documents.
 
-The generated codec covers Herb's node, token, location, string, boolean, and array field shapes. Diagnostics and Prism payloads are not encoded yet.
+The generated codec covers Herb's nodes, diagnostics, tokens, locations,
+strings, booleans, and arrays. Parser options use a separate generated,
+versioned input codec. Prism program and subtree payloads are serialized by the
+vendored Prism implementation and returned as binary strings.
 
 ## Build
 
@@ -32,7 +35,10 @@ JRUBY_JSA_HOME=/tmp/herb-jruby-jsa \
   bundle exec ruby -Itest test/wasm/backend_test.rb
 ```
 
-The public experiment can be selected with `HERB_BACKEND=wasm`. Operations that have not crossed the Wasm boundary yet raise `NotImplementedError` rather than silently falling back to the pure-Ruby backend.
+The public experiment can be selected with `HERB_BACKEND=wasm`. Arena
+statistics and operations that have not crossed the Wasm boundary yet raise
+`NotImplementedError` rather than silently falling back to the pure-Ruby
+backend.
 
 ## ABI
 

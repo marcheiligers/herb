@@ -65,6 +65,7 @@ static bool herb_wasm_buffer_append_location(hb_buffer_T* buffer, location_T loc
 }
 
 #include "ast_codec.inc"
+#include "parser_options_codec.inc"
 
 __attribute__((visibility("default"))) uint32_t herb_wasm_allocate(uint32_t size) {
   size_t allocation_size = size == 0 ? 1 : size;
@@ -123,8 +124,21 @@ herb_wasm_extract_html(uint32_t source_pointer, uint32_t source_length) {
   return (uint32_t) (uintptr_t) result;
 }
 
-__attribute__((visibility("default"))) uint32_t herb_wasm_parse(uint32_t source_pointer, uint32_t source_length) {
+__attribute__((visibility("default"))) uint32_t herb_wasm_parse(
+  uint32_t source_pointer,
+  uint32_t source_length,
+  uint32_t options_pointer,
+  uint32_t options_length
+) {
   if (source_length == UINT32_MAX) { return herb_wasm_error("source is too large"); }
+
+  parser_options_T options = HERB_DEFAULT_PARSER_OPTIONS;
+  hb_string_T opener_buffer[HERB_WASM_MAX_ERB_OPENERS];
+  const uint8_t* options_bytes = (const uint8_t*) (uintptr_t) options_pointer;
+
+  if (!herb_wasm_decode_parser_options(options_bytes, options_length, &options, opener_buffer)) {
+    return herb_wasm_error("invalid Herb WebAssembly parser options");
+  }
 
   const char* source_bytes = (const char*) (uintptr_t) source_pointer;
   char* source = malloc((size_t) source_length + 1);
@@ -141,9 +155,7 @@ __attribute__((visibility("default"))) uint32_t herb_wasm_parse(uint32_t source_
   }
 
   uint32_t error_count = 0;
-  parser_options_T options = HERB_DEFAULT_PARSER_OPTIONS;
   options.error_count = &error_count;
-  options.html = false;
 
   AST_DOCUMENT_NODE_T* document = herb_parse(source, &options, &allocator);
 
@@ -151,13 +163,6 @@ __attribute__((visibility("default"))) uint32_t herb_wasm_parse(uint32_t source_
     hb_allocator_destroy(&allocator);
     free(source);
     return herb_wasm_error("Herb returned no document");
-  }
-
-  if (error_count != 0) {
-    ast_node_free((AST_NODE_T*) document, &allocator);
-    hb_allocator_destroy(&allocator);
-    free(source);
-    return herb_wasm_error("the Herb WebAssembly AST codec does not encode diagnostics yet");
   }
 
   hb_buffer_T output;

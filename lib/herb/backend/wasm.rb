@@ -5,6 +5,7 @@ raise LoadError, "Herb's WebAssembly backend requires JRuby" unless RUBY_ENGINE 
 
 require_relative "wasm/endive"
 require_relative "wasm/ast_codec"
+require_relative "wasm/parser_options_codec"
 
 module Herb
   module Backend
@@ -35,6 +36,10 @@ module Herb
           read(length).force_encoding(Encoding::UTF_8)
         end
 
+        def bytes(length)
+          read(length).force_encoding(Encoding::BINARY)
+        end
+
         def finish!
           raise "Herb WebAssembly result has trailing bytes" unless @offset == @payload.bytesize
         end
@@ -54,13 +59,10 @@ module Herb
       def parse(source, **)
         validate_source!(source)
         parser_options = ParserOptions.new(**)
-        expected_options = ParserOptions.new(html: false)
+        validate_parser_options!(parser_options)
 
-        unless parser_options.to_h == expected_options.to_h
-          raise NotImplementedError, "the Herb WebAssembly experiment currently parses only with html: false"
-        end
-
-        decode_parse(Endive.parse(source), source, parser_options)
+        encoded_options = ParserOptionsCodec.encode(parser_options)
+        decode_parse(Endive.parse(source, encoded_options), source, parser_options)
       end
 
       #: (String) -> String
@@ -83,13 +85,20 @@ module Herb
       end
       private_class_method :validate_source!
 
+      def validate_parser_options!(options)
+        return unless options.arena_stats
+
+        raise NotImplementedError, "the Herb WebAssembly backend does not expose arena allocation statistics"
+      end
+      private_class_method :validate_parser_options!
+
       def decode_parse(payload, source, parser_options)
         reader = PayloadReader.new(payload)
         schema_version = reader.uint32
         raise "unsupported Herb WebAssembly result version #{schema_version}" unless schema_version == 2
 
         error_count = reader.uint32
-        document = ASTCodec.decode_node(reader)
+        document = ASTCodec.decode_node(reader, track_locations: parser_options.track_locations)
         raise "Herb WebAssembly returned no document" unless document.is_a?(AST::DocumentNode)
 
         reader.finish!

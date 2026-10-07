@@ -44,8 +44,8 @@ module Herb
             call("herb_wasm_extract_html", source)
           end
 
-          def parse(source)
-            call("herb_wasm_parse", source, encoding: Encoding::BINARY)
+          def parse(source, options)
+            call("herb_wasm_parse", source, secondary: options, encoding: Encoding::BINARY)
           end
 
           private
@@ -54,15 +54,27 @@ module Herb
             @instance.export(name)
           end
 
-          def call(name, source, encoding: Encoding::UTF_8)
+          def call(name, source, secondary: nil, encoding: Encoding::UTF_8)
             @mutex.synchronize do
               source_pointer = write(source)
-              result_pointer = function(name).apply(source_pointer, source.bytesize)[0].to_i
+              secondary_pointer = write(secondary) if secondary
+              result_pointer = invoke(name, source, source_pointer, secondary, secondary_pointer)
               unwrap(result_pointer, encoding: encoding)
             ensure
               result_free(result_pointer)
+              deallocate(secondary_pointer)
               deallocate(source_pointer)
             end
+          end
+
+          def invoke(name, source, source_pointer, secondary, secondary_pointer)
+            result = if secondary
+                       function(name).apply(source_pointer, source.bytesize, secondary_pointer, secondary.bytesize)
+                     else
+                       function(name).apply(source_pointer, source.bytesize)
+                     end
+
+            result[0].to_i
           end
 
           def allocate(size)
@@ -117,8 +129,8 @@ module Herb
           runtime.extract_html(source)
         end
 
-        def parse(source)
-          runtime.parse(source)
+        def parse(source, options)
+          runtime.parse(source, options)
         end
 
         def runtime

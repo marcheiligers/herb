@@ -1,4 +1,5 @@
 static bool herb_wasm_encode_node(hb_buffer_T* buffer, AST_NODE_T* node);
+static bool herb_wasm_encode_error(hb_buffer_T* buffer, ERROR_T* error);
 
 static bool herb_wasm_encode_string(hb_buffer_T* buffer, hb_string_T string) {
   if (hb_string_is_null(string)) { return herb_wasm_buffer_append_uint32(buffer, 0); }
@@ -16,6 +17,11 @@ static bool herb_wasm_encode_optional_location(hb_buffer_T* buffer, location_T* 
   return herb_wasm_buffer_append_uint32(buffer, 1) && herb_wasm_buffer_append_location(buffer, *location);
 }
 
+static bool herb_wasm_encode_position(hb_buffer_T* buffer, position_T position) {
+  return herb_wasm_buffer_append_uint32(buffer, position.line)
+      && herb_wasm_buffer_append_uint32(buffer, position.column);
+}
+
 static bool herb_wasm_encode_token(hb_buffer_T* buffer, token_T* token) {
   if (token == NULL) { return herb_wasm_buffer_append_uint32(buffer, 0); }
 
@@ -27,6 +33,35 @@ static bool herb_wasm_encode_token(hb_buffer_T* buffer, token_T* token) {
       && herb_wasm_buffer_append_uint32(buffer, token->range.to)
       && herb_wasm_buffer_append_location(buffer, token->location)
       && herb_wasm_encode_string(buffer, type);
+}
+
+static bool herb_wasm_encode_prism_node(hb_buffer_T* buffer, herb_prism_node_T prism_node) {
+  if (prism_node.node == NULL || prism_node.parser == NULL) {
+    return herb_wasm_buffer_append_uint32(buffer, 0);
+  }
+
+  pm_buffer_t serialized = { 0 };
+  pm_serialize(prism_node.parser, prism_node.node, &serialized);
+
+  bool encoded = serialized.length <= UINT32_MAX
+              && herb_wasm_buffer_append_uint32(buffer, 1)
+              && herb_wasm_buffer_append_uint32(buffer, (uint32_t) serialized.length);
+
+  if (encoded) { hb_buffer_append_with_length(buffer, serialized.value, serialized.length); }
+
+  pm_buffer_free(&serialized);
+  return encoded;
+}
+
+static bool herb_wasm_encode_prism_serialized(hb_buffer_T* buffer, prism_serialized_T serialized) {
+  if (serialized.data == NULL) { return herb_wasm_buffer_append_uint32(buffer, 0); }
+  if (serialized.length > UINT32_MAX) { return false; }
+
+  herb_wasm_buffer_append_uint32(buffer, 1);
+  herb_wasm_buffer_append_uint32(buffer, (uint32_t) serialized.length);
+  hb_buffer_append_with_length(buffer, (const char*) serialized.data, serialized.length);
+
+  return true;
 }
 
 static bool herb_wasm_encode_nodes(hb_buffer_T* buffer, hb_array_T* nodes) {
@@ -41,9 +76,63 @@ static bool herb_wasm_encode_nodes(hb_buffer_T* buffer, hb_array_T* nodes) {
   return true;
 }
 
+static bool herb_wasm_encode_errors(hb_buffer_T* buffer, hb_array_T* errors) {
+  size_t count = hb_array_size(errors);
+  if (count > UINT32_MAX) { return false; }
+  if (!herb_wasm_buffer_append_uint32(buffer, (uint32_t) count)) { return false; }
+
+  for (size_t index = 0; index < count; index++) {
+    if (!herb_wasm_encode_error(buffer, (ERROR_T*) hb_array_get(errors, index))) { return false; }
+  }
+
+  return true;
+}
+
+static bool herb_wasm_encode_error(hb_buffer_T* buffer, ERROR_T* error) {
+  if (error == NULL) { return false; }
+
+  switch (error->type) {
+  <%- errors.each_with_index do |error, index| -%>
+    case <%= error.type %>: {
+      <%= error.struct_type %>* value = (<%= error.struct_type %>*) error;
+
+      if (!herb_wasm_buffer_append_uint32(buffer, <%= index + 1 %>)
+          || !herb_wasm_encode_string(buffer, error_type_to_string(error))
+          || !herb_wasm_buffer_append_location(buffer, error->location)
+          || !herb_wasm_encode_string(buffer, error->message)) {
+        return false;
+      }
+
+      <%- error.fields.each do |field| -%>
+      <%- case field -%>
+      <%- when Herb::Template::PositionField -%>
+      if (!herb_wasm_encode_position(buffer, value-><%= field.name %>)) { return false; }
+      <%- when Herb::Template::TokenField -%>
+      if (!herb_wasm_encode_token(buffer, value-><%= field.name %>)) { return false; }
+      <%- when Herb::Template::TokenTypeField -%>
+      if (!herb_wasm_encode_string(buffer, token_type_to_string(value-><%= field.name %>))) { return false; }
+      <%- when Herb::Template::StringField -%>
+      if (!herb_wasm_encode_string(buffer, value-><%= field.name %>)) { return false; }
+      <%- when Herb::Template::SizeTField -%>
+      if (value-><%= field.name %> > UINT32_MAX
+          || !herb_wasm_buffer_append_uint32(buffer, (uint32_t) value-><%= field.name %>)) {
+        return false;
+      }
+      <%- else -%>
+      <%- raise "Unsupported portable Wasm error field type: #{field.class}" -%>
+      <%- end -%>
+      <%- end -%>
+
+      return true;
+    }
+  <%- end -%>
+  }
+
+  return false;
+}
+
 static bool herb_wasm_encode_node(hb_buffer_T* buffer, AST_NODE_T* node) {
   if (node == NULL) { return herb_wasm_buffer_append_uint32(buffer, 0); }
-  if (hb_array_size(node->errors) != 0) { return false; }
 
   switch (node->type) {
   <%- nodes.each_with_index do |node, index| -%>
@@ -52,7 +141,7 @@ static bool herb_wasm_encode_node(hb_buffer_T* buffer, AST_NODE_T* node) {
 
       if (!herb_wasm_buffer_append_uint32(buffer, <%= index + 1 %>)
           || !herb_wasm_buffer_append_location(buffer, node->location)
-          || !herb_wasm_buffer_append_uint32(buffer, 0)) {
+          || !herb_wasm_encode_errors(buffer, node->errors)) {
         return false;
       }
 
@@ -71,11 +160,9 @@ static bool herb_wasm_encode_node(hb_buffer_T* buffer, AST_NODE_T* node) {
       <%- when Herb::Template::LocationField -%>
       if (!herb_wasm_encode_optional_location(buffer, value-><%= field.name %>)) { return false; }
       <%- when Herb::Template::PrismNodeField -%>
-      if (value-><%= field.name %>.node != NULL || value-><%= field.name %>.parser != NULL) { return false; }
-      if (!herb_wasm_buffer_append_uint32(buffer, 0)) { return false; }
+      if (!herb_wasm_encode_prism_node(buffer, value-><%= field.name %>)) { return false; }
       <%- when Herb::Template::PrismSerializedField -%>
-      if (value-><%= field.name %>.data != NULL || value-><%= field.name %>.length != 0) { return false; }
-      if (!herb_wasm_buffer_append_uint32(buffer, 0)) { return false; }
+      if (!herb_wasm_encode_prism_serialized(buffer, value-><%= field.name %>)) { return false; }
       <%- when Herb::Template::PrismContextField, Herb::Template::AnalyzedRubyField, Herb::Template::VoidPointerField -%>
       /* <%= field.name %> is internal parser state and is not exposed to Ruby. */
       <%- else -%>

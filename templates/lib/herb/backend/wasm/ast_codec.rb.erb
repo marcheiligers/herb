@@ -4,13 +4,12 @@ module Herb
       module ASTCodec
         module_function
 
-        def decode_node(reader)
+        def decode_node(reader, track_locations: true)
           node_id = reader.uint32
           return nil if node_id.zero?
 
           location = decode_location(reader)
-          error_count = reader.uint32
-          raise "the Herb WebAssembly AST codec does not support node errors yet" unless error_count.zero?
+          errors = decode_errors(reader)
 
           case node_id
           <%- nodes.each_with_index do |node, index| -%>
@@ -18,19 +17,19 @@ module Herb
             <%- node.fields.each do |field| -%>
             <%- case field -%>
             <%- when Herb::Template::ArrayField -%>
-            <%= field.name %> = decode_nodes(reader)
+            <%= field.name %> = decode_nodes(reader, track_locations: track_locations)
             <%- when Herb::Template::NodeField, Herb::Template::BorrowedNodeField -%>
-            <%= field.name %> = decode_node(reader)
+            <%= field.name %> = decode_node(reader, track_locations: track_locations)
             <%- when Herb::Template::TokenField -%>
-            <%= field.name %> = decode_token(reader)
+            <%= field.name %> = decode_token(reader, track_locations: track_locations)
             <%- when Herb::Template::StringField, Herb::Template::ElementSourceField -%>
             <%= field.name %> = decode_string(reader)
             <%- when Herb::Template::BooleanField -%>
             <%= field.name %> = decode_boolean(reader)
             <%- when Herb::Template::LocationField -%>
-            <%= field.name %> = decode_optional_location(reader)
+            <%= field.name %> = decode_optional_location(reader, track_locations: track_locations)
             <%- when Herb::Template::PrismNodeField, Herb::Template::PrismSerializedField -%>
-            <%= field.name %> = decode_prism_placeholder(reader)
+            <%= field.name %> = decode_prism(reader)
             <%- when Herb::Template::PrismContextField, Herb::Template::AnalyzedRubyField, Herb::Template::VoidPointerField -%>
             <%= field.name %> = nil
             <%- else -%>
@@ -41,8 +40,8 @@ module Herb
               <%- node.fields.each do |field| -%>
               <%= field.name %>: <%= field.name %>,
               <%- end -%>
-              location: location,
-              errors: []
+              location: tracked(location, track_locations),
+              errors: errors
             )
           <%- end -%>
           else
@@ -50,11 +49,59 @@ module Herb
           end
         end
 
-        def decode_nodes(reader)
-          Array.new(reader.uint32) { decode_node(reader) }
+        def decode_nodes(reader, track_locations: true)
+          Array.new(reader.uint32) { decode_node(reader, track_locations: track_locations) }
         end
 
-        def decode_token(reader)
+        def decode_errors(reader)
+          Array.new(reader.uint32) { decode_error(reader) }
+        end
+
+        def decode_error(reader)
+          error_id = reader.uint32
+          type = decode_string(reader)
+          raise "Herb WebAssembly returned an error without a type" unless type
+
+          location = decode_location(reader)
+          message = decode_string(reader)
+          raise "Herb WebAssembly returned an error without a message" unless message
+
+          case error_id
+          <%- errors.each_with_index do |error, index| -%>
+          when <%= index + 1 %>
+            <%- error.fields.each do |field| -%>
+            <%- case field -%>
+            <%- when Herb::Template::PositionField -%>
+            <%= field.name %> = decode_position(reader)
+            <%- when Herb::Template::TokenField -%>
+            <%= field.name %> = decode_token(reader)
+            raise "Herb WebAssembly returned an error without <%= field.name %>" unless <%= field.name %>
+
+            <%- when Herb::Template::TokenTypeField, Herb::Template::StringField -%>
+            <%= field.name %> = decode_string(reader)
+            raise "Herb WebAssembly returned an error without <%= field.name %>" unless <%= field.name %>
+
+            <%- when Herb::Template::SizeTField -%>
+            <%= field.name %> = reader.uint32
+            <%- else -%>
+            <%- raise "Unsupported portable Wasm error field type: #{field.class}" -%>
+            <%- end -%>
+            <%- end -%>
+            Errors::<%= error.name %>.new(
+              type,
+              location,
+              message<%= error.fields.any? ? "," : "" %>
+              <%- error.fields.each do |field| -%>
+              <%= field.name %><%= error.fields.last == field ? "" : "," %>
+              <%- end -%>
+            )
+          <%- end -%>
+          else
+            raise "unsupported Herb WebAssembly error type #{error_id}"
+          end
+        end
+
+        def decode_token(reader, track_locations: true)
           presence = reader.uint32
           return nil if presence.zero?
           raise "invalid Herb WebAssembly token marker #{presence}" unless presence == 1
@@ -68,7 +115,14 @@ module Herb
           type = decode_string(reader)
           raise "Herb WebAssembly returned a token without a type" unless type
 
-          Token.new(value, Range.from(from, to), location, type)
+          range = Range.from(from, to)
+
+          Token.new(
+            value,
+            tracked(range, track_locations),
+            tracked(location, track_locations),
+            type
+          )
         end
 
         def decode_string(reader)
@@ -87,23 +141,33 @@ module Herb
           raise "invalid Herb WebAssembly boolean #{value}"
         end
 
-        def decode_optional_location(reader)
+        def decode_optional_location(reader, track_locations: true)
           presence = reader.uint32
           return nil if presence.zero?
           raise "invalid Herb WebAssembly location marker #{presence}" unless presence == 1
 
-          decode_location(reader)
+          location = decode_location(reader)
+          track_locations ? location : nil
+        end
+
+        def decode_position(reader)
+          Position.new(reader.uint32, reader.uint32)
         end
 
         def decode_location(reader)
           Location.from(reader.uint32, reader.uint32, reader.uint32, reader.uint32)
         end
 
-        def decode_prism_placeholder(reader)
+        def tracked(value, track_locations)
+          track_locations ? value : nil
+        end
+
+        def decode_prism(reader)
           presence = reader.uint32
           return nil if presence.zero?
+          raise "invalid Herb WebAssembly Prism marker #{presence}" unless presence == 1
 
-          raise "the Herb WebAssembly AST codec does not support Prism payloads yet"
+          reader.bytes(reader.uint32).freeze
         end
       end
     end
