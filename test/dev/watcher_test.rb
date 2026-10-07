@@ -266,5 +266,27 @@ module Dev
         assert_empty events
       end
     end
+
+    test "the native watcher delivers a template change" do
+      Dir.mktmpdir do |root|
+        root = File.realpath(root)
+        events = Queue.new
+        config = Herb::Configuration.load(root)
+        watcher = Herb::Dev::Watcher.new(config: config, root: root) { |event| events << event }
+        thread = watcher.spawn
+
+        sleep 0.25
+        write(root, "index.html.erb", "<p>Hi</p>")
+
+        event = events.pop(timeout: 5)
+
+        assert_equal :added, event.kind
+        assert_equal "index.html.erb", event.relative_path
+        assert_equal "<p>Hi</p>", event.current
+      ensure
+        watcher&.stop
+        thread&.join(1)
+      end
+    end
   end
 end

@@ -13,6 +13,7 @@ require_relative "visitor/diagnostics"
 require_relative "engine/helpers"
 require_relative "engine/compiler"
 require_relative "engine/errors"
+require_relative "engine/ruby_validator"
 require_relative "diagnostic/formatter"
 
 module Herb
@@ -488,25 +489,11 @@ module Herb
     end
 
     def ensure_valid_ruby!(source)
-      RubyVM::InstructionSequence.compile(source)
-    rescue SyntaxError => e
-      return if e.message.include?("Invalid yield")
+      errors = RubyValidator.errors(source)
+      return if errors.empty?
 
-      begin
-        require "prism"
-      rescue LoadError
-        # Prism not available, fall through
-      end
-
-      raise InvalidRubyError.new("Compiled template produced invalid Ruby:\n  - #{e.message}", compiled_source: @src) unless defined?(Prism)
-
-      prism_result = Prism.parse(@src)
-      syntax_errors = prism_result.errors.reject { |error| error.type == :invalid_yield }
-
-      if syntax_errors.any?
-        details = syntax_errors.map { |error| "  - #{error.message} (line #{error.location.start_line})" }.join("\n")
-        raise InvalidRubyError.new("Compiled template produced invalid Ruby:\n#{details}", compiled_source: @src)
-      end
+      details = errors.map { |error| "  - #{error}" }.join("\n")
+      raise InvalidRubyError.new("Compiled template produced invalid Ruby:\n#{details}", compiled_source: @src)
     end
   end
 end

@@ -1,0 +1,17 @@
+# Generated from lib/herb/engine/runtime/execution_domain.rb with RBS::Inline
+
+module Herb
+  class Engine
+    module Runtime
+      # Identifies the logical Ruby thread that owns runtime state. Thread variables cross Fiber
+      # boundaries but not Thread or Ractor boundaries, including when JRuby backs a Fiber with a
+      # different JVM thread.
+      module ExecutionDomain
+        KEY: Symbol
+
+        # : () -> Object
+        def self.current: () -> Object
+      end
+    end
+  end
+end

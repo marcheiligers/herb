@@ -220,6 +220,8 @@ module Engine
     end
 
     test "a ractor collects into its own, even reaching the one in fiber storage" do
+      skip "Ractor is unavailable" unless defined?(::Ractor)
+
       session = Herb::Engine::Runtime::Session.open
       Herb::Engine::Runtime::Session.record(diagnostic(code: "main"))
 

@@ -42,9 +42,7 @@ module Herb
 
         STATE_KEY: Symbol
 
-        RACTOR_KEY: Symbol
-
-        THREAD_KEY: Symbol
+        DOMAIN_KEY: Symbol
 
         attr_reader report: Herb::Engine::Runtime::Report
 

@@ -3,6 +3,7 @@
 
 require_relative "report"
 require_relative "entry"
+require_relative "execution_domain"
 
 module Herb
   class Engine
@@ -23,16 +24,14 @@ module Herb
         Measurement = Data.define(:key, :origin, :code, :message, :description, :kind, :per, :block)
 
         STATE_KEY = :herb_engine_report_session #: Symbol
-        RACTOR_KEY = :herb_engine_report_session_ractor #: Symbol
-        THREAD_KEY = :herb_engine_report_session_thread #: Symbol
+        DOMAIN_KEY = :herb_engine_report_session_domain #: Symbol
 
         attr_reader :report #: Herb::Engine::Runtime::Report
         attr_reader :previous #: Session?
 
         #: () -> Session?
         def self.stored
-          return nil unless Fiber[RACTOR_KEY].equal?(Ractor.current)
-          return nil unless Fiber[THREAD_KEY] == Thread.current.object_id
+          return nil unless Fiber[DOMAIN_KEY].equal?(ExecutionDomain.current)
 
           Fiber[STATE_KEY]
         end
@@ -40,8 +39,7 @@ module Herb
         #: (Session?) -> void
         def self.store(session)
           Fiber[STATE_KEY] = session
-          Fiber[RACTOR_KEY] = session && Ractor.current
-          Fiber[THREAD_KEY] = session && Thread.current.object_id
+          Fiber[DOMAIN_KEY] = session && ExecutionDomain.current
 
           nil
         end

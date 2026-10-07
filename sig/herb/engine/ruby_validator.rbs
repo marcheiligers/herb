@@ -1,0 +1,16 @@
+# Generated from lib/herb/engine/ruby_validator.rb with RBS::Inline
+
+module Herb
+  class Engine
+    module RubyValidator
+      # : (String) -> Array[String]
+      def self.errors: (String) -> Array[String]
+
+      # : (String) -> Array[String]
+      private def self.native_errors: (String) -> Array[String]
+
+      # : (String, ?fallback: String?) -> Array[String]
+      private def self.prism_errors: (String, ?fallback: String?) -> Array[String]
+    end
+  end
+end
