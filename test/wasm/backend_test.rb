@@ -37,6 +37,27 @@ class WasmBackendTest < Minitest::Spec
     end
   end
 
+  test "extracts Ruby with native-compatible options" do
+    examples = {
+      ["<h1><%= user.name %></h1>", {}] => "        user.name  ;     ",
+      [
+        "<div>\n<%# note %>\n<% x = 1 %>\n<%= x %>\n</div>",
+        { comments: true, semicolons: false, preserve_positions: false }
+      ] => "\n# note \n x = 1 \n x \n",
+      ["<%herb slot :header %><%= name %>", { erb_openers: ["herb"] }] =>
+        "                     ;    name  ;",
+      ["<%herb slot :header %><%= name %>", { erb_openers: ["herb"], custom_tags: true }] =>
+        "       slot :header  ;    name  ;",
+      ["<%= x %>", { semicolons: nil }] => "    x  ;",
+      ["<%= x %>", { semicolons: false, "semicolons" => true }] => "    x  ;",
+      ["<%= x %>", { semicolons: true, "semicolons" => false }] => "    x   ",
+    }
+
+    examples.each do |(source, options), expected|
+      assert_equal expected, Herb::Backend::Wasm.extract_ruby(source, **options)
+    end
+  end
+
   test "can release and reuse guest memory across repeated calls" do
     source = "<p>hello</p><%= ignored %>"
     expected = Herb::Backend::PureRuby.extract_html(source)

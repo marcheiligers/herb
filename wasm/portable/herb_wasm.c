@@ -124,6 +124,53 @@ herb_wasm_extract_html(uint32_t source_pointer, uint32_t source_length) {
   return (uint32_t) (uintptr_t) result;
 }
 
+__attribute__((visibility("default"))) uint32_t herb_wasm_extract_ruby(
+  uint32_t source_pointer,
+  uint32_t source_length,
+  uint32_t options_pointer,
+  uint32_t options_length
+) {
+  if (source_length == UINT32_MAX) { return herb_wasm_error("source is too large"); }
+
+  herb_extract_ruby_options_T options = HERB_EXTRACT_RUBY_DEFAULT_OPTIONS;
+  hb_string_T opener_buffer[HERB_WASM_MAX_ERB_OPENERS];
+  const uint8_t* options_bytes = (const uint8_t*) (uintptr_t) options_pointer;
+
+  if (!herb_wasm_decode_extract_ruby_options(options_bytes, options_length, &options, opener_buffer)) {
+    return herb_wasm_error("invalid Herb WebAssembly extract_ruby options");
+  }
+
+  const char* source_bytes = (const char*) (uintptr_t) source_pointer;
+  char* source = malloc((size_t) source_length + 1);
+
+  if (source == NULL) { return herb_wasm_error("failed to allocate the source buffer"); }
+
+  if (source_length > 0) { memcpy(source, source_bytes, source_length); }
+  source[source_length] = '\0';
+
+  hb_allocator_T allocator;
+  if (!hb_allocator_init(&allocator, HB_ALLOCATOR_ARENA)) {
+    free(source);
+    return herb_wasm_error("failed to initialize the Herb allocator");
+  }
+
+  hb_buffer_T output;
+  if (!hb_buffer_init(&output, source_length, &allocator)) {
+    hb_allocator_destroy(&allocator);
+    free(source);
+    return herb_wasm_error("failed to initialize the result buffer");
+  }
+
+  herb_extract_ruby_to_buffer_with_options(source, &output, &options, &allocator);
+
+  uint8_t* result = herb_wasm_result_new(HERB_WASM_RESULT_OK, hb_buffer_value(&output), hb_buffer_length(&output));
+
+  hb_allocator_destroy(&allocator);
+  free(source);
+
+  return (uint32_t) (uintptr_t) result;
+}
+
 __attribute__((visibility("default"))) uint32_t herb_wasm_parse(
   uint32_t source_pointer,
   uint32_t source_length,

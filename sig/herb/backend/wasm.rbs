@@ -18,6 +18,7 @@ module Herb
       end
 
       def self?.parse: (untyped source, **untyped) -> Herb::ParseResult
+      def self?.extract_ruby: (String source, **untyped) -> String
       def self?.extract_html: (String source) -> String
       def self?.version: () -> String
 

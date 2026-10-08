@@ -1,5 +1,6 @@
 enum {
   HERB_WASM_PARSER_OPTIONS_SCHEMA_VERSION = 1,
+  HERB_WASM_EXTRACT_RUBY_OPTIONS_SCHEMA_VERSION = 1,
   HERB_WASM_MAX_ERB_OPENERS = 64,
 };
 
@@ -30,6 +31,29 @@ static bool herb_wasm_input_read_boolean(herb_wasm_input_reader_T* reader, bool*
   return true;
 }
 
+static bool herb_wasm_input_read_erb_openers(
+  herb_wasm_input_reader_T* reader,
+  const hb_string_T** openers,
+  size_t* opener_count,
+  hb_string_T* opener_buffer
+) {
+  uint32_t count;
+  if (!herb_wasm_input_read_uint32(reader, &count) || count > HERB_WASM_MAX_ERB_OPENERS) { return false; }
+
+  for (uint32_t index = 0; index < count; index++) {
+    uint32_t string_length;
+    if (!herb_wasm_input_read_uint32(reader, &string_length) || string_length == 0) { return false; }
+    if (reader->offset > reader->length || reader->length - reader->offset < string_length) { return false; }
+
+    opener_buffer[index] = hb_string_from_data((const char*) reader->bytes + reader->offset, string_length);
+    reader->offset += string_length;
+  }
+
+  *openers = opener_buffer;
+  *opener_count = count;
+  return true;
+}
+
 static bool herb_wasm_decode_parser_options(
   const uint8_t* bytes,
   uint32_t length,
@@ -48,26 +72,48 @@ static bool herb_wasm_decode_parser_options(
   <%- if field.boolean? -%>
   if (!herb_wasm_input_read_boolean(&reader, &options-><%= field.c_name %>)) { return false; }
   <%- elsif field.string_array? -%>
-  {
-    uint32_t count;
-    if (!herb_wasm_input_read_uint32(&reader, &count) || count > HERB_WASM_MAX_ERB_OPENERS) { return false; }
-
-    for (uint32_t index = 0; index < count; index++) {
-      uint32_t string_length;
-      if (!herb_wasm_input_read_uint32(&reader, &string_length) || string_length == 0) { return false; }
-      if (reader.offset > reader.length || reader.length - reader.offset < string_length) { return false; }
-
-      opener_buffer[index] = hb_string_from_data((const char*) reader.bytes + reader.offset, string_length);
-      reader.offset += string_length;
-    }
-
-    options-><%= field.c_name %> = opener_buffer;
-    options-><%= field.count_name %> = count;
+  if (!herb_wasm_input_read_erb_openers(
+        &reader,
+        &options-><%= field.c_name %>,
+        &options-><%= field.count_name %>,
+        opener_buffer
+      )) {
+    return false;
   }
   <%- else -%>
   if (!herb_wasm_input_read_uint32(&reader, &options-><%= field.c_name %>)) { return false; }
   <%- end -%>
   <%- end -%>
+
+  return reader.offset == reader.length;
+}
+
+static bool herb_wasm_decode_extract_ruby_options(
+  const uint8_t* bytes,
+  uint32_t length,
+  herb_extract_ruby_options_T* options,
+  hb_string_T* opener_buffer
+) {
+  herb_wasm_input_reader_T reader = { .bytes = bytes, .length = length, .offset = 0 };
+  uint32_t schema_version;
+
+  if (!herb_wasm_input_read_uint32(&reader, &schema_version)
+      || schema_version != HERB_WASM_EXTRACT_RUBY_OPTIONS_SCHEMA_VERSION) {
+    return false;
+  }
+
+  if (!herb_wasm_input_read_boolean(&reader, &options->semicolons)
+      || !herb_wasm_input_read_boolean(&reader, &options->comments)
+      || !herb_wasm_input_read_boolean(&reader, &options->preserve_positions)
+      || !herb_wasm_input_read_boolean(&reader, &options->custom_tags)
+      || !herb_wasm_input_read_erb_openers(
+        &reader,
+        &options->erb_openers,
+        &options->erb_opener_count,
+        opener_buffer
+      )) {
+    return false;
+  }
 
   return reader.offset == reader.length;
 }

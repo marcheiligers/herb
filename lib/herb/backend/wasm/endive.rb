@@ -44,6 +44,10 @@ module Herb
             call("herb_wasm_extract_html", source)
           end
 
+          def extract_ruby(source, options)
+            call("herb_wasm_extract_ruby", source, secondary: options)
+          end
+
           def parse(source, options)
             call("herb_wasm_parse", source, secondary: options, encoding: Encoding::BINARY)
           end
@@ -127,6 +131,10 @@ module Herb
 
         def extract_html(source)
           runtime.extract_html(source)
+        end
+
+        def extract_ruby(source, options)
+          runtime.extract_ruby(source, options)
         end
 
         def parse(source, options)

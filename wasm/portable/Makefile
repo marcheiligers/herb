@@ -47,6 +47,7 @@ LDFLAGS := \
 	-Wl,--export=herb_wasm_libherb_version \
 	-Wl,--export=herb_wasm_prism_version \
 	-Wl,--export=herb_wasm_extract_html \
+	-Wl,--export=herb_wasm_extract_ruby \
 	-Wl,--export=herb_wasm_parse
 
 .PHONY: all clean check

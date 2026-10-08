@@ -3,6 +3,7 @@ module Herb
     module Wasm
       module ParserOptionsCodec
         SCHEMA_VERSION = 1
+        EXTRACT_RUBY_SCHEMA_VERSION = 1
         MAX_ERB_OPENERS = 64
 
         module_function
@@ -27,6 +28,24 @@ module Herb
           <%- end -%>
 
           payload
+        end
+
+        def encode_extract_ruby(options)
+          payload = [EXTRACT_RUBY_SCHEMA_VERSION].pack("L<")
+          payload << [option(options, :semicolons, true) ? 1 : 0].pack("L<")
+          payload << [option(options, :comments, false) ? 1 : 0].pack("L<")
+          payload << [option(options, :preserve_positions, true) ? 1 : 0].pack("L<")
+          payload << [option(options, :custom_tags, false) ? 1 : 0].pack("L<")
+          encode_erb_openers(payload, option(options, :erb_openers, []))
+
+          payload
+        end
+
+        def option(options, name, default)
+          value = options[name.to_s]
+          value = options[name] if value.nil?
+
+          value.nil? ? default : value
         end
 
         def encode_erb_openers(payload, openers)

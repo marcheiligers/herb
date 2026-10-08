@@ -18,6 +18,7 @@ module Herb
           def close: () -> untyped
           def string: (String name) -> String
           def extract_html: (String source) -> String
+          def extract_ruby: (String source, String options) -> String
           def parse: (String source, String options) -> String
 
           private
@@ -35,6 +36,7 @@ module Herb
         def self?.libherb_version: () -> String
         def self?.prism_version: () -> String
         def self?.extract_html: (String source) -> String
+        def self?.extract_ruby: (String source, String options) -> String
         def self?.parse: (String source, String options) -> String
         def self?.runtime: () -> Runtime
         def self?.wasm_module: () -> untyped

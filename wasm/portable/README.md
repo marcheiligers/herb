@@ -8,6 +8,7 @@ The experiment currently exports:
 - owned result-buffer release;
 - libherb and Prism versions;
 - HTML extraction;
+- Ruby extraction, including its options and custom ERB openers;
 - a generated AST codec for HTML and ERB documents.
 
 The generated codec covers Herb's nodes, diagnostics, tokens, locations,

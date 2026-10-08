@@ -16,6 +16,7 @@ module Herb
         implementation = self
 
         Backend.define_singleton_method(:parse) { |source, **options| implementation.parse(source, **options) }
+        Backend.define_singleton_method(:extract_ruby) { |source, **options| implementation.extract_ruby(source, **options) }
         Backend.define_singleton_method(:extract_html) { |source| implementation.extract_html(source) }
         Backend.define_singleton_method(:version) { implementation.version }
         nil
@@ -70,6 +71,14 @@ module Herb
         validate_source!(source)
 
         Endive.extract_html(source)
+      end
+
+      #: (String, **untyped) -> String
+      def extract_ruby(source, **options)
+        validate_source!(source)
+
+        encoded_options = ParserOptionsCodec.encode_extract_ruby(options)
+        Endive.extract_ruby(source, encoded_options)
       end
 
       #: () -> String
