@@ -19,13 +19,15 @@ module Herb
           def string: (String name) -> String
           def extract_html: (String source) -> String
           def extract_ruby: (String source, String options) -> String
+          def lex: (String source, String options) -> String
+          def diff: (String old_source, String new_source, String options) -> String
           def parse: (String source, String options) -> String
 
           private
 
           def function: (String name) -> untyped
-          def call: (String name, String source, ?secondary: String?, ?encoding: Encoding) -> String
-          def invoke: (String name, String source, Integer source_pointer, String? secondary, Integer? secondary_pointer) -> Integer
+          def call: (String name, *String inputs, ?encoding: Encoding) -> String
+          def invoke: (String name, Array[String] inputs, Array[Integer] pointers) -> Integer
           def allocate: (Integer size) -> Integer
           def deallocate: (Integer? pointer) -> untyped
           def result_free: (Integer? pointer) -> untyped
@@ -37,6 +39,8 @@ module Herb
         def self?.prism_version: () -> String
         def self?.extract_html: (String source) -> String
         def self?.extract_ruby: (String source, String options) -> String
+        def self?.lex: (String source, String options) -> String
+        def self?.diff: (String old_source, String new_source, String options) -> String
         def self?.parse: (String source, String options) -> String
         def self?.runtime: () -> Runtime
         def self?.wasm_module: () -> untyped

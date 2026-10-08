@@ -1,0 +1,12 @@
+module Herb
+  module Backend
+    module Wasm
+      module DiffCodec
+        SCHEMA_VERSION: Integer
+
+        def self?.decode: (String payload) -> Herb::Diff::Result
+        def self?.decode_operation: (PayloadReader reader) -> Herb::Diff::Operation
+      end
+    end
+  end
+end

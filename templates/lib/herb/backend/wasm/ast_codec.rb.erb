@@ -115,6 +115,8 @@ module Herb
           type = decode_string(reader)
           raise "Herb WebAssembly returned a token without a type" unless type
 
+          type = -type
+
           range = Range.from(from, to)
 
           Token.new(
@@ -123,6 +125,15 @@ module Herb
             tracked(location, track_locations),
             type
           )
+        end
+
+        def decode_tokens(reader, track_locations: true)
+          Array.new(reader.uint32) do
+            token = decode_token(reader, track_locations: track_locations)
+            raise "Herb WebAssembly returned an empty token" unless token
+
+            token
+          end
         end
 
         def decode_string(reader)

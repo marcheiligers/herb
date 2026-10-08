@@ -9,6 +9,8 @@ The experiment currently exports:
 - libherb and Prism versions;
 - HTML extraction;
 - Ruby extraction, including its options and custom ERB openers;
+- lexing into native-compatible Herb tokens;
+- tree diffing with complete old/new AST nodes;
 - a generated AST codec for HTML and ERB documents.
 
 The generated codec covers Herb's nodes, diagnostics, tokens, locations,
@@ -27,6 +29,8 @@ WASI_SDK_PATH=/path/to/wasi-sdk-34 \
 ```
 
 The module is written to `wasm/portable/build/herb.wasm` and is intentionally ignored by Git.
+The linker reserves a 1 MiB guest stack because diffing keeps two parsed trees
+and recursive hash/reconciliation work live in one call.
 
 Run its focused tests with:
 

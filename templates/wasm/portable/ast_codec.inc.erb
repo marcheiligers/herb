@@ -35,6 +35,18 @@ static bool herb_wasm_encode_token(hb_buffer_T* buffer, token_T* token) {
       && herb_wasm_encode_string(buffer, type);
 }
 
+static bool herb_wasm_encode_tokens(hb_buffer_T* buffer, hb_array_T* tokens) {
+  size_t count = hb_array_size(tokens);
+  if (count > UINT32_MAX) { return false; }
+  if (!herb_wasm_buffer_append_uint32(buffer, (uint32_t) count)) { return false; }
+
+  for (size_t index = 0; index < count; index++) {
+    if (!herb_wasm_encode_token(buffer, (token_T*) hb_array_get(tokens, index))) { return false; }
+  }
+
+  return true;
+}
+
 static bool herb_wasm_encode_prism_node(hb_buffer_T* buffer, herb_prism_node_T prism_node) {
   if (prism_node.node == NULL || prism_node.parser == NULL) {
     return herb_wasm_buffer_append_uint32(buffer, 0);

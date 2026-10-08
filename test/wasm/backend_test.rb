@@ -58,6 +58,92 @@ class WasmBackendTest < Minitest::Spec
     end
   end
 
+  test "lexes native-compatible tokens and custom ERB openers" do
+    source = "<p>Hé\n</p>"
+    result = Herb::Backend::Wasm.lex(source)
+
+    assert_instance_of Herb::LexResult, result
+    assert_equal source, result.source
+    assert_predicate result, :success?
+    assert_empty result.warnings
+    assert_empty result.errors
+    assert_equal(
+      [
+        ["TOKEN_HTML_TAG_START", "<"],
+        ["TOKEN_IDENTIFIER", "p"],
+        ["TOKEN_HTML_TAG_END", ">"],
+        ["TOKEN_IDENTIFIER", "H"],
+        ["TOKEN_CHARACTER", "é"],
+        ["TOKEN_NEWLINE", "\n"],
+        ["TOKEN_HTML_TAG_START_CLOSE", "</"],
+        ["TOKEN_IDENTIFIER", "p"],
+        ["TOKEN_HTML_TAG_END", ">"],
+        ["TOKEN_EOF", ""]
+      ],
+      result.value.map { |token| [token.type, token.value] }
+    )
+
+    character = result.value.fetch(4)
+    assert_equal [4, 6], character.range.to_a
+    assert_equal({ start: { line: 1, column: 4 }, end: { line: 1, column: 5 } }, character.location.to_hash)
+    assert_equal [11, 11], result.value.last.range.to_a
+
+    custom = Herb::Backend::Wasm.lex("<%graphql query %>", erb_openers: ["graphql"])
+    assert_equal(
+      [
+        ["TOKEN_ERB_START", "<%graphql"],
+        ["TOKEN_ERB_CONTENT", " query "],
+        ["TOKEN_ERB_END", "%>"],
+        ["TOKEN_EOF", ""]
+      ],
+      custom.value.map { |token| [token.type, token.value] }
+    )
+  end
+
+  test "preserves native lex result and string ownership behavior" do
+    nil_result = Herb::Backend::Wasm.lex(nil)
+    first = Herb::Backend::Wasm.lex("<").value.first
+    second = Herb::Backend::Wasm.lex("<").value.first
+
+    assert_nil nil_result.source
+    assert_equal(
+      [["TOKEN_EOF", "", [0, 0]]],
+      nil_result.value.map { |token| [token.type, token.value, token.range.to_a] }
+    )
+    assert_predicate first.type, :frozen?
+    assert_same first.type, second.type
+    refute_predicate first.value, :frozen?
+    refute_same first.value, second.value
+  end
+
+  test "diffs native-compatible trees and options" do
+    result = Herb::Backend::Wasm.diff("<div>Hello</div>", "<div>World</div>")
+    operation = result.operations.fetch(0)
+
+    assert_instance_of Herb::Diff::Result, result
+    assert_predicate result, :changed?
+    assert_equal :text_changed, operation.type
+    assert_equal [0, 0], operation.path
+    assert_instance_of Herb::AST::HTMLTextNode, operation.old_node
+    assert_instance_of Herb::AST::HTMLTextNode, operation.new_node
+    assert_equal "Hello", operation.old_node.content
+    assert_equal "World", operation.new_node.content
+    assert_equal 0, operation.old_index
+    assert_equal 0, operation.new_index
+
+    insertion = Herb::Backend::Wasm.diff(nil, "<p>x</p>").operations.fetch(0)
+    assert_equal :node_inserted, insertion.type
+    assert_nil insertion.old_node
+    assert_instance_of Herb::AST::HTMLElementNode, insertion.new_node
+
+    whitespace = Herb::Backend::Wasm.diff(
+      "<div>Hello World</div>",
+      "<div>Hello     World</div>",
+      "track_whitespace_changes" => true
+    )
+    assert_equal [:whitespace_changed], whitespace.operations.map(&:type)
+  end
+
   test "can release and reuse guest memory across repeated calls" do
     source = "<p>hello</p><%= ignored %>"
     expected = Herb::Backend::PureRuby.extract_html(source)
@@ -242,5 +328,11 @@ class WasmBackendTest < Minitest::Spec
     end
 
     assert_match(/arena allocation statistics/, error.message)
+
+    lex_error = assert_raises(NotImplementedError) do
+      Herb::Backend::Wasm.lex("hello", arena_stats: true)
+    end
+
+    assert_match(/arena allocation statistics/, lex_error.message)
   end
 end

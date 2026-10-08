@@ -18,13 +18,16 @@ module Herb
       end
 
       def self?.parse: (untyped source, **untyped) -> Herb::ParseResult
+      def self?.lex: (String? source, **untyped) -> Herb::LexResult
       def self?.extract_ruby: (String source, **untyped) -> String
       def self?.extract_html: (String source) -> String
+      def self?.diff: (String? old_source, String? new_source, **untyped) -> Herb::Diff::Result
       def self?.version: () -> String
 
       def self?.validate_source!: (untyped source) -> nil
       def self?.validate_parser_options!: (Herb::ParserOptions options) -> nil
       def self?.decode_parse: (String payload, String source, Herb::ParserOptions parser_options) -> Herb::ParseResult
+      def self?.decode_lex: (String payload, String? source) -> Herb::LexResult
     end
   end
 end

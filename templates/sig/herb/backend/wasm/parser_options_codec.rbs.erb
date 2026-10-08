@@ -3,10 +3,14 @@ module Herb
     module Wasm
       module ParserOptionsCodec
         SCHEMA_VERSION: Integer
+        LEX_SCHEMA_VERSION: Integer
+        DIFF_SCHEMA_VERSION: Integer
         EXTRACT_RUBY_SCHEMA_VERSION: Integer
         MAX_ERB_OPENERS: Integer
 
         def self?.encode: (Herb::ParserOptions options) -> String
+        def self?.encode_lex: (Hash[Symbol | String, untyped] options) -> String
+        def self?.encode_diff: (Hash[Symbol | String, untyped] options) -> String
         def self?.encode_extract_ruby: (Hash[Symbol | String, untyped] options) -> String
         def self?.option: (Hash[Symbol | String, untyped] options, Symbol name, untyped default) -> untyped
         def self?.encode_erb_openers: (String payload, untyped openers) -> void

@@ -3,6 +3,8 @@ module Herb
     module Wasm
       module ParserOptionsCodec
         SCHEMA_VERSION = 1
+        LEX_SCHEMA_VERSION = 1
+        DIFF_SCHEMA_VERSION = 1
         EXTRACT_RUBY_SCHEMA_VERSION = 1
         MAX_ERB_OPENERS = 64
 
@@ -37,6 +39,20 @@ module Herb
           payload << [option(options, :preserve_positions, true) ? 1 : 0].pack("L<")
           payload << [option(options, :custom_tags, false) ? 1 : 0].pack("L<")
           encode_erb_openers(payload, option(options, :erb_openers, []))
+
+          payload
+        end
+
+        def encode_lex(options)
+          payload = [LEX_SCHEMA_VERSION].pack("L<")
+          encode_erb_openers(payload, option(options, :erb_openers, []))
+
+          payload
+        end
+
+        def encode_diff(options)
+          payload = [DIFF_SCHEMA_VERSION].pack("L<")
+          payload << [option(options, :track_whitespace_changes, false) ? 1 : 0].pack("L<")
 
           payload
         end

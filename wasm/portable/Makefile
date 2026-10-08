@@ -40,6 +40,7 @@ CFLAGS := \
 LDFLAGS := \
 	-lwasi-emulated-mman \
 	-Wl,--gc-sections \
+	-Wl,-z,stack-size=1048576 \
 	-Wl,--export-memory \
 	-Wl,--export=herb_wasm_allocate \
 	-Wl,--export=herb_wasm_deallocate \
@@ -48,6 +49,8 @@ LDFLAGS := \
 	-Wl,--export=herb_wasm_prism_version \
 	-Wl,--export=herb_wasm_extract_html \
 	-Wl,--export=herb_wasm_extract_ruby \
+	-Wl,--export=herb_wasm_lex \
+	-Wl,--export=herb_wasm_diff \
 	-Wl,--export=herb_wasm_parse
 
 .PHONY: all clean check
@@ -58,7 +61,7 @@ check:
 	@test -x "$(CC)" || { echo "WASI SDK clang not found at $(CC)" >&2; exit 1; }
 	@test -f "$(ROOT)/vendor/prism/include/prism.h" || { echo "Vendored Prism is missing; run the Herb bootstrap first" >&2; exit 1; }
 
-$(OUTPUT): herb_wasm.c $(AST_CODEC) $(PARSER_OPTIONS_CODEC) $(HERB_SOURCES) $(PRISM_SOURCES) | $(BUILD_DIR)
+$(OUTPUT): Makefile herb_wasm.c $(AST_CODEC) $(PARSER_OPTIONS_CODEC) $(HERB_SOURCES) $(PRISM_SOURCES) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $(SOURCES) $(LDFLAGS) -o $@
 
 $(BUILD_DIR):

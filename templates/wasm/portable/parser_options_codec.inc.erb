@@ -1,5 +1,7 @@
 enum {
   HERB_WASM_PARSER_OPTIONS_SCHEMA_VERSION = 1,
+  HERB_WASM_LEX_OPTIONS_SCHEMA_VERSION = 1,
+  HERB_WASM_DIFF_OPTIONS_SCHEMA_VERSION = 1,
   HERB_WASM_EXTRACT_RUBY_OPTIONS_SCHEMA_VERSION = 1,
   HERB_WASM_MAX_ERB_OPENERS = 64,
 };
@@ -114,6 +116,50 @@ static bool herb_wasm_decode_extract_ruby_options(
       )) {
     return false;
   }
+
+  return reader.offset == reader.length;
+}
+
+static bool herb_wasm_decode_lex_options(
+  const uint8_t* bytes,
+  uint32_t length,
+  parser_options_T* options,
+  hb_string_T* opener_buffer
+) {
+  herb_wasm_input_reader_T reader = { .bytes = bytes, .length = length, .offset = 0 };
+  uint32_t schema_version;
+
+  if (!herb_wasm_input_read_uint32(&reader, &schema_version)
+      || schema_version != HERB_WASM_LEX_OPTIONS_SCHEMA_VERSION) {
+    return false;
+  }
+
+  if (!herb_wasm_input_read_erb_openers(
+        &reader,
+        &options->erb_openers,
+        &options->erb_opener_count,
+        opener_buffer
+      )) {
+    return false;
+  }
+
+  return reader.offset == reader.length;
+}
+
+static bool herb_wasm_decode_diff_options(
+  const uint8_t* bytes,
+  uint32_t length,
+  herb_diff_options_T* options
+) {
+  herb_wasm_input_reader_T reader = { .bytes = bytes, .length = length, .offset = 0 };
+  uint32_t schema_version;
+
+  if (!herb_wasm_input_read_uint32(&reader, &schema_version)
+      || schema_version != HERB_WASM_DIFF_OPTIONS_SCHEMA_VERSION) {
+    return false;
+  }
+
+  if (!herb_wasm_input_read_boolean(&reader, &options->track_whitespace_changes)) { return false; }
 
   return reader.offset == reader.length;
 }

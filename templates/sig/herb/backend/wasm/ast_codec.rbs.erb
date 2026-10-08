@@ -7,6 +7,7 @@ module Herb
         def self?.decode_errors: (PayloadReader reader) -> Array[untyped]
         def self?.decode_error: (PayloadReader reader) -> untyped
         def self?.decode_token: (PayloadReader reader, ?track_locations: bool) -> Herb::Token?
+        def self?.decode_tokens: (PayloadReader reader, ?track_locations: bool) -> Array[Herb::Token]
         def self?.decode_string: (PayloadReader reader) -> String?
         def self?.decode_boolean: (PayloadReader reader) -> bool
         def self?.decode_optional_location: (PayloadReader reader, ?track_locations: bool) -> Herb::Location?

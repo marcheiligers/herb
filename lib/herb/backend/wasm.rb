@@ -5,6 +5,7 @@ raise LoadError, "Herb's WebAssembly backend requires JRuby" unless RUBY_ENGINE 
 
 require_relative "wasm/endive"
 require_relative "wasm/ast_codec"
+require_relative "wasm/diff_codec"
 require_relative "wasm/parser_options_codec"
 
 module Herb
@@ -16,8 +17,12 @@ module Herb
         implementation = self
 
         Backend.define_singleton_method(:parse) { |source, **options| implementation.parse(source, **options) }
+        Backend.define_singleton_method(:lex) { |source, **options| implementation.lex(source, **options) }
         Backend.define_singleton_method(:extract_ruby) { |source, **options| implementation.extract_ruby(source, **options) }
         Backend.define_singleton_method(:extract_html) { |source| implementation.extract_html(source) }
+        Backend.define_singleton_method(:diff) do |old_source, new_source, **options|
+          implementation.diff(old_source, new_source, **options)
+        end
         Backend.define_singleton_method(:version) { implementation.version }
         nil
       end
@@ -66,6 +71,19 @@ module Herb
         decode_parse(Endive.parse(source, encoded_options), source, parser_options)
       end
 
+      #: (String?, **untyped) -> Herb::LexResult
+      def lex(source, **options)
+        unless source.nil? || source.is_a?(String)
+          raise TypeError, "wrong argument type #{source.class} (expected String)"
+        end
+        if ParserOptionsCodec.option(options, :arena_stats, false)
+          raise NotImplementedError, "the Herb WebAssembly backend does not expose arena allocation statistics"
+        end
+
+        encoded_options = ParserOptionsCodec.encode_lex(options)
+        decode_lex(Endive.lex(source.to_s, encoded_options), source)
+      end
+
       #: (String) -> String
       def extract_html(source)
         validate_source!(source)
@@ -79,6 +97,19 @@ module Herb
 
         encoded_options = ParserOptionsCodec.encode_extract_ruby(options)
         Endive.extract_ruby(source, encoded_options)
+      end
+
+      #: (String?, String?, **untyped) -> Herb::Diff::Result
+      def diff(old_source, new_source, **options)
+        [old_source, new_source].each do |source|
+          next if source.nil? || source.is_a?(String)
+
+          raise TypeError, "wrong argument type #{source.class} (expected String)"
+        end
+
+        encoded_options = ParserOptionsCodec.encode_diff(options)
+        payload = Endive.diff(old_source.to_s, new_source.to_s, encoded_options)
+        DiffCodec.decode(payload)
       end
 
       #: () -> String
@@ -115,6 +146,18 @@ module Herb
         ParseResult.new(document, source, [], [], parser_options, error_count)
       end
       private_class_method :decode_parse
+
+      def decode_lex(payload, source)
+        reader = PayloadReader.new(payload)
+        schema_version = reader.uint32
+        raise "unsupported Herb WebAssembly lex result version #{schema_version}" unless schema_version == 1
+
+        tokens = ASTCodec.decode_tokens(reader)
+        reader.finish!
+
+        LexResult.new(tokens, source, [], [])
+      end
+      private_class_method :decode_lex
     end
   end
 end

@@ -45,11 +45,19 @@ module Herb
           end
 
           def extract_ruby(source, options)
-            call("herb_wasm_extract_ruby", source, secondary: options)
+            call("herb_wasm_extract_ruby", source, options)
+          end
+
+          def lex(source, options)
+            call("herb_wasm_lex", source, options, encoding: Encoding::BINARY)
+          end
+
+          def diff(old_source, new_source, options)
+            call("herb_wasm_diff", old_source, new_source, options, encoding: Encoding::BINARY)
           end
 
           def parse(source, options)
-            call("herb_wasm_parse", source, secondary: options, encoding: Encoding::BINARY)
+            call("herb_wasm_parse", source, options, encoding: Encoding::BINARY)
           end
 
           private
@@ -58,27 +66,26 @@ module Herb
             @instance.export(name)
           end
 
-          def call(name, source, secondary: nil, encoding: Encoding::UTF_8)
+          def call(name, *inputs, encoding: Encoding::UTF_8)
+            pointers = [] #: Array[Integer]
+            result_pointer = 0
+
             @mutex.synchronize do
-              source_pointer = write(source)
-              secondary_pointer = write(secondary) if secondary
-              result_pointer = invoke(name, source, source_pointer, secondary, secondary_pointer)
+              inputs.each { |input| pointers << write(input) }
+              result_pointer = invoke(name, inputs, pointers)
               unwrap(result_pointer, encoding: encoding)
             ensure
               result_free(result_pointer)
-              deallocate(secondary_pointer)
-              deallocate(source_pointer)
+              pointers.each { |pointer| deallocate(pointer) }
             end
           end
 
-          def invoke(name, source, source_pointer, secondary, secondary_pointer)
-            result = if secondary
-                       function(name).apply(source_pointer, source.bytesize, secondary_pointer, secondary.bytesize)
-                     else
-                       function(name).apply(source_pointer, source.bytesize)
-                     end
+          def invoke(name, inputs, pointers)
+            arguments = inputs.each_with_index.flat_map do |input, index|
+              [pointers.fetch(index), input.bytesize]
+            end #: Array[Integer]
 
-            result[0].to_i
+            function(name).apply(*arguments)[0].to_i
           end
 
           def allocate(size)
@@ -135,6 +142,14 @@ module Herb
 
         def extract_ruby(source, options)
           runtime.extract_ruby(source, options)
+        end
+
+        def lex(source, options)
+          runtime.lex(source, options)
+        end
+
+        def diff(old_source, new_source, options)
+          runtime.diff(old_source, new_source, options)
         end
 
         def parse(source, options)
